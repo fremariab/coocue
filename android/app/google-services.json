@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "535343213814",
+    "project_id": "coocue-39d77",
+    "storage_bucket": "coocue-39d77.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:535343213814:android:8b7d119cea3595994f90d7",
+        "android_client_info": {
+          "package_name": "com.example.coocue"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC0dZaPIUusnAO97A8IK448Vo47ENfHe6A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
