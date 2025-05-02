@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:coocue/screens/role_picker_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -57,7 +58,7 @@ class WelcomeScreen extends StatelessWidget {
               const SizedBox(height: 50),
 
               const Text(
-                'Transform any Android phone\ninto a smart baby monitor.',
+                'Transform any Android phone\ninto a smart baby monitor',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'LeagueSpartan',
@@ -72,9 +73,12 @@ class WelcomeScreen extends StatelessWidget {
                 width: 341,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Navigate to next screen
-                  },
+                 onPressed: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const RolePickerScreen()),
+  );
+},
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF3F51B5),
                     shape: RoundedRectangleBorder(
