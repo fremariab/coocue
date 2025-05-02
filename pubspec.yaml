@@ -43,6 +43,7 @@ dependencies:
   firebase_messaging: ^15.2.5
   uuid: ^4.5.1
   crypto: ^3.0.6
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +70,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/
+    - .env
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
@@ -82,6 +84,14 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
+  fonts:
+    - family: LeagueSpartan
+      fonts:
+        - asset: assets/fonts/LeagueSpartan-Regular.ttf
+        - asset: assets/fonts/LeagueSpartan-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/LeagueSpartan-Medium.ttf
+          weight: 500
   # fonts:
   #   - family: Schyler
   #     fonts:

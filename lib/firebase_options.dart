@@ -3,6 +3,8 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -40,8 +42,8 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDQl0WmtVZ2BkviKKYEUhOrFg5JMkQoMq0',
+  static final FirebaseOptions web = FirebaseOptions(
+    apiKey: dotenv.env['GOOGLE_API_KEY_WEB']!,
     appId: '1:535343213814:web:a9b89be55b9f67994f90d7',
     messagingSenderId: '535343213814',
     projectId: 'coocue-39d77',
@@ -49,16 +51,16 @@ class DefaultFirebaseOptions {
     storageBucket: 'coocue-39d77.firebasestorage.app',
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyC0dZaPIUusnAO97A8IK448Vo47ENfHe6A',
+  static final FirebaseOptions android = FirebaseOptions(
+    apiKey: dotenv.env['GOOGLE_API_KEY_ANDROID']!,
     appId: '1:535343213814:android:8b7d119cea3595994f90d7',
     messagingSenderId: '535343213814',
     projectId: 'coocue-39d77',
     storageBucket: 'coocue-39d77.firebasestorage.app',
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBVYjB9NNOt0V1U2u_39XT72LS6sE0DkBE',
+  static final FirebaseOptions ios = FirebaseOptions(
+    apiKey: dotenv.env['GOOGLE_API_KEY_IOS']!,
     appId: '1:535343213814:ios:a4f8692ab186dd614f90d7',
     messagingSenderId: '535343213814',
     projectId: 'coocue-39d77',
@@ -66,8 +68,8 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.example.coocue',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBVYjB9NNOt0V1U2u_39XT72LS6sE0DkBE',
+  static final FirebaseOptions macos = FirebaseOptions(
+    apiKey: dotenv.env['GOOGLE_API_KEY_MACOS']!,
     appId: '1:535343213814:ios:a4f8692ab186dd614f90d7',
     messagingSenderId: '535343213814',
     projectId: 'coocue-39d77',
@@ -75,8 +77,8 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.example.coocue',
   );
 
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDQl0WmtVZ2BkviKKYEUhOrFg5JMkQoMq0',
+  static final FirebaseOptions windows = FirebaseOptions(
+    apiKey: dotenv.env['GOOGLE_API_KEY_WINDOWS']!,
     appId: '1:535343213814:web:1931802ad25aa70e4f90d7',
     messagingSenderId: '535343213814',
     projectId: 'coocue-39d77',
