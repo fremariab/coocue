@@ -34,8 +34,7 @@ class _CotCameraScreenState extends State<CotCameraScreen> {
     await renderer.initialize();
     
     renderer.srcObject = WebRTCService.instance.localStream;
-  renderer.muted = true;          // ← bool property, not a method
-        // belt‑and‑suspenders
+
     return renderer;
   }
 

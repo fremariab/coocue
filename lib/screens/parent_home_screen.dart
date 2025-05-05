@@ -26,8 +26,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   MediaStream? _remoteStream;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
-  
-  RTCMediaStreamTrack? _talkTrack;
+
+  MediaStreamTrack? _talkTrack;
   RTCRtpSender? _talkSender;
   bool _isTalking = false;
   @override
@@ -54,11 +54,32 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     super.dispose();
   }
 
+  void _setRemoteAudioEnabled(bool enabled) {
+    _remoteStream?.getAudioTracks().forEach((t) => t.enabled = enabled);
+  }
+
   Future<void> _initializeApp() async {
     await _remoteRenderer.initialize();
     await _loadPairedId();
     setState(() => isLoading = false);
   }
+
+  Future<void> _startTalking() async {
+    if (_talkTrack == null) return;
+    _talkTrack!.enabled = true; // un‑mute this side
+    _setRemoteAudioEnabled(false); // mute baby audio
+    setState(() => _isTalking = true);
+  }
+
+  Future<void> _stopTalking() async {
+    if (_talkTrack == null) return;
+    _talkTrack!.enabled = false; // mute mic
+    _setRemoteAudioEnabled(true); // restore baby audio
+    if (mounted) setState(() => _isTalking = false);
+  }
+
+  Future<void> _toggleTalk() async =>
+      _isTalking ? _stopTalking() : _startTalking();
 
   Future<void> _startViewing() async {
     if (pairedId == null) {
@@ -81,6 +102,14 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
           {'urls': 'stun:stun.l.google.com:19302'},
         ],
       });
+      final talkStream = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+
+      _talkTrack = talkStream.getAudioTracks().first;
+      _talkTrack!.enabled = false; // <-- muted initially
+      _talkSender = await _peer!.addTrack(_talkTrack!, talkStream);
       _peer!.onIceCandidate = (RTCIceCandidate? cand) {
         if (cand != null) {
           callRef.collection('answersCandidates').add({
@@ -163,8 +192,10 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     }
   }
 
-  void _closeConnection() {
+  Future<void> _closeConnection() async {
     // Safely close remote stream
+    if (_isTalking) await _stopTalking();
+
     if (_remoteStream != null) {
       _remoteStream!.getTracks().forEach((track) => track.stop());
       _remoteStream!.dispose();
@@ -466,19 +497,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                           Expanded(
                             child: GestureDetector(
                               onTap:
-                                  isPaired
-                                      ? () {
-                                        // TODO: Implement Talk functionality
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Talk feature coming soon!',
-                                            ),
-                                          ),
-                                        );
-                                      }
+                                  isPaired && isViewingActive
+                                      ? _toggleTalk
                                       : null,
                               child: Container(
                                 padding: const EdgeInsets.all(16),
@@ -505,7 +525,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                 child: Column(
                                   children: [
                                     Icon(
-                                      Icons.mic,
+                                      _isTalking ? Icons.mic_off : Icons.mic,
                                       color:
                                           isPaired
                                               ? const Color(0xFFFF9800)
@@ -514,7 +534,9 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      'Talk',
+                                      _isTalking
+                                          ? 'Stop Talking'
+                                          : 'Start Talking',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontFamily: 'LeagueSpartan',
@@ -530,6 +552,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                               ),
                             ),
                           ),
+
                           Expanded(
                             child: GestureDetector(
                               onTap:

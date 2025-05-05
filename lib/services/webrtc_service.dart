@@ -22,10 +22,10 @@ class WebRTCService {
     // 1️⃣ get user media
     _localStream ??= await navigator.mediaDevices.getUserMedia({
       'audio': {
-    'echoCancellation': true,
-    'noiseSuppression': true,
-    'autoGainControl': true,
-  },
+        'echoCancellation': true,
+        'noiseSuppression': true,
+        'autoGainControl': true,
+      },
       'video': {'facingMode': 'user'},
     });
 
@@ -35,6 +35,17 @@ class WebRTCService {
         {'urls': 'stun:stun.l.google.com:19302'},
       ],
     });
+
+    _pc!.onTrack = (RTCTrackEvent event) async {
+      // Parent adds exactly one audio track; ignore video here
+      if (event.track.kind == 'audio') {
+        final hiddenRenderer = RTCVideoRenderer();
+        await hiddenRenderer.initialize();
+
+        hiddenRenderer.srcObject = event.streams.first; // attaches audio
+        Helper.setSpeakerphoneOn(true); // plays through speaker
+      }
+    };
 
     _localStream!.getTracks().forEach((t) {
       _pc!.addTrack(t, _localStream!);
