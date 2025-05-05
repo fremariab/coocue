@@ -1,6 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:coocue/screens/parent_dashboard_screen.dart';
 
@@ -13,8 +13,9 @@ class PairScreen extends StatefulWidget {
 class _PairScreenState extends State<PairScreen> {
   String codeInput = '';
   String errorText = '';
+  final _storage = FlutterSecureStorage();
 
-  final functions = FirebaseFunctions.instance; // production client
+  final functions = FirebaseFunctions.instance;
 
   void _onDigit(String d) => setState(() => codeInput += d);
   void _onBackspace() => setState(() {
@@ -31,10 +32,9 @@ class _PairScreenState extends State<PairScreen> {
     debugPrint('▶️ [PairScreen] calling sendPairing with pairId="$pairId"');
 
     try {
-      // Subscribe this parent to the topic so it can receive alerts
       await FirebaseMessaging.instance.subscribeToTopic('pair_$pairId');
+      await _storage.write(key: 'pair_id', value: pairId);
 
-      // Call your production HTTPS-Callable function
       final callable = functions.httpsCallable(
         'sendPairing',
         options: HttpsCallableOptions(timeout: const Duration(seconds: 10)),

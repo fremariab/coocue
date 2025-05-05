@@ -23,6 +23,7 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
   static const _codeKey = 'pair_code';
   static const _idKey = 'pair_id';
   static const _expiryKey = 'pair_expiry';
+  static const _isPairedKey = 'is_paired'; // Added for clarity
 
   String? pairingCode; // six-digit string
   DateTime? expiry; // when it expires
@@ -37,12 +38,30 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
 
   void _setupFirebaseListener() {
     FirebaseMessaging.onMessage.listen((msg) async {
+      debugPrint("-----------------\nPair message received\n---------------");
+      debugPrint("Message data: ${msg.data}");
+      
       if (msg.data['type'] == 'PAIRED') {
-        await _storage.write(key: 'is_paired', value: 'true');
-        // Also store the pair ID that comes from the server
-        if (msg.data['pairId'] != null) {
-          await _storage.write(key: 'pair_id', value: msg.data['pairId']);
+        // Get pair ID either from message or use our own code
+        String pairId;
+        if (msg.data['pairId'] != null && msg.data['pairId'].toString().isNotEmpty) {
+          pairId = msg.data['pairId'].toString();
+          debugPrint("Using server-provided pairId: $pairId");
+        } else {
+          // If no ID provided, use our own code as the ID
+          pairId = pairingCode ?? '';
+          debugPrint("Using local code as pairId: $pairId");
         }
+        
+        // Store both values
+await _storage.write(key: _isPairedKey, value: 'true');
+        await _storage.write(key: _idKey, value: pairId);
+        
+        // Debug check the stored values
+        final storedPairId = await _storage.read(key: _idKey);
+        final isPaired = await _storage.read(key: _isPairedKey);
+        debugPrint("Stored values - isPaired: $isPaired, pairId: $storedPairId");
+        
         if (mounted) Navigator.pop(context);
       }
     });
@@ -68,7 +87,11 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
     // 1️⃣ Store locally for your UI
     await _storage.write(key: _codeKey, value: code);
     await _storage.write(key: _expiryKey, value: expIso);
-    await _storage.write(key: _idKey, value: code);
+    await _storage.write(key: _idKey, value: code); // Also store as the pair ID
+    
+    debugPrint("-----------------\nGenerated new code\n---------------");
+    debugPrint("Code: $code");
+    debugPrint("Stored as pair_id: $code");
 
     // 2️⃣ Also write to Firestore for server-side verification
     await FirebaseFirestore.instance.collection('pairingCodes').doc(code).set({
@@ -160,18 +183,17 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
               // Code Display
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children:
-                    digits.map((d) {
-                      return Text(
-                        d,
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'LeagueSpartan',
-                          color: Color(0xff3F51B5),
-                        ),
-                      );
-                    }).toList(),
+                children: digits.map((d) {
+                  return Text(
+                    d,
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'LeagueSpartan',
+                      color: Color(0xff3F51B5),
+                    ),
+                  );
+                }).toList(),
               ),
 
               const SizedBox(height: 32),

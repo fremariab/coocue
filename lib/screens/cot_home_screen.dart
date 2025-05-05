@@ -9,6 +9,7 @@ enum CotStatus { waitingToPair, idle }
 
 class CotHomeScreen extends StatefulWidget {
   const CotHomeScreen({super.key});
+
   @override
   State<CotHomeScreen> createState() => _CotHomeScreenState();
 }
@@ -22,8 +23,10 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
   static const _codeKey = 'pair_code';
   static const _idKey = 'pair_id';
   static const _expiryKey = 'pair_expiry';
-
+  static const _isPairedKey = 'is_paired'; // Added for clarity
+  
   CotStatus _status = CotStatus.waitingToPair;
+  String? _pairId; // Store the pair ID in memory
 
   @override
   void initState() {
@@ -32,18 +35,47 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
   }
 
   Future<void> _refreshStatus() async {
-    final pairedFlag = await _storage.read(key: 'is_paired');
-    if (pairedFlag == 'true') {
+    final pairedFlag = await _storage.read(key: _isPairedKey);
+    _pairId = await _storage.read(key: _idKey);
+    
+    debugPrint("-----------------\n REFRESH STATUS\n---------------");
+    debugPrint("Is paired: $pairedFlag");
+    debugPrint("Pair ID: $_pairId");
+    
+    if (pairedFlag == 'true' && _pairId != null && _pairId!.isNotEmpty) {
       setState(() => _status = CotStatus.idle);
       return;
     }
+    
+    // If not properly paired, check if we have a code that can serve as ID
+    if (_pairId == null || _pairId!.isEmpty) {
+      // Try to read the code as backup (in DisplayCodeScreen, code is also stored as ID)
+      final code = await _storage.read(key: _codeKey);
+      if (code != null && code.isNotEmpty) {
+        // Use the code as the pair ID if available
+        await _storage.write(key: _idKey, value: code);
+        _pairId = code;
+        debugPrint("Using code as pair ID: $_pairId");
+      }
+    }
+    
     setState(() => _status = CotStatus.waitingToPair);
+  }
+
+  Future<void> _ensurePairId() async {
+    // If we still don't have a pair ID, generate one
+    if (_pairId == null || _pairId!.isEmpty) {
+      final code = (_uuid.v4().hashCode.abs() % 900000 + 100000).toString();
+      await _storage.write(key: _idKey, value: code);
+      _pairId = code;
+      debugPrint("Generated new pair ID: $_pairId");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isWaiting = _status == CotStatus.waitingToPair;
-
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FC),
       body: SafeArea(
@@ -54,7 +86,6 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
               const SizedBox(height: 20),
               Image.asset('assets/images/coocue_logo2.png', height: 40),
               const SizedBox(height: 30),
-
               const Text(
                 'Cot Home',
                 style: TextStyle(
@@ -113,17 +144,21 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
                 height: 48,
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                        debugPrint("-----------------\n PUSHED BUTTON\n---------------");
-
-                    final id = await _storage.read(key: 'pair_id');
-                                            debugPrint("-----------------\n pairid\n---------------");
-                                            debugPrint(id);
-
-                    if (id != null && id.isNotEmpty) {
+                    debugPrint("-----------------\n PUSHED BUTTON\n---------------");
+                    
+                    // Make sure we have a pair ID
+                    if (_pairId == null || _pairId!.isEmpty) {
+                      await _ensurePairId();
+                    }
+                    
+                    debugPrint("-----------------\n pairid\n---------------");
+                    debugPrint(_pairId);
+                    
+                    if (_pairId != null && _pairId!.isNotEmpty) {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => CotCameraScreen(pairId: id),
+                          builder: (_) => CotCameraScreen(pairId: _pairId!),
                         ),
                       );
                     } else {
@@ -197,7 +232,29 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
               ] else ...[
                 Image.asset('assets/images/img3.png', height: 200),
                 const SizedBox(height: 40),
-                // optional: add an “Unpair” button here for manual reset
+                // Add unpair button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      // Reset pairing status
+                      await _storage.delete(key: _isPairedKey);
+                      await _refreshStatus();
+                    },
+                    icon: const Icon(Icons.link_off, color: Colors.white),
+                    label: const Text(
+                      'Unpair',
+                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFF5252),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
