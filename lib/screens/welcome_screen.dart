@@ -10,13 +10,16 @@ class WelcomeScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF4F6FC), // Background color
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal:10),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20), // Push logo to top
               Center(
-                child: Image.asset('assets/images/coocue_logo2.png', height: 30),
+                child: Image.asset(
+                  'assets/images/coocue_logo2.png',
+                  height: 30,
+                ),
               ),
 
               const SizedBox(height: 60),
@@ -32,7 +35,7 @@ class WelcomeScreen extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF3F51B5),
                       fontFamily: 'LeagueSpartan',
-                      height: 0.5, 
+                      height: 0.5,
                     ),
                   ),
                   Text(
@@ -73,12 +76,14 @@ class WelcomeScreen extends StatelessWidget {
                 width: 341,
                 height: 48,
                 child: ElevatedButton(
-                 onPressed: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => const RolePickerScreen()),
-  );
-},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RolePickerScreen(),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF3F51B5),
                     shape: RoundedRectangleBorder(

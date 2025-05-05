@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'package:coocue/screens/cot_home_screen.dart';
+import 'package:coocue/screens/enter_pin_screen.dart';
 import 'package:flutter/material.dart';
-import 'welcome_screen.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
+import 'welcome_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,11 +19,30 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
 
-    Timer(const Duration(seconds: 5), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-      );
+    Timer(const Duration(seconds: 3), () async {
+      final prefs = await SharedPreferences.getInstance();
+      final role = prefs.getString('role');
+
+      if (role == 'parent') {
+        // go straight to lock screen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const EnterPinScreen()),
+        );
+      } else if (role == 'cot') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => const CotHomeScreen(),
+          ),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+        );
+      }
     });
 
     // Animate the progress line smoothly

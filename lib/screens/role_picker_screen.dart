@@ -1,4 +1,7 @@
+import 'package:coocue/screens/cot_home_screen.dart';
+import 'package:coocue/screens/create_pin_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class RolePickerScreen extends StatelessWidget {
   const RolePickerScreen({super.key});
@@ -13,8 +16,7 @@ class RolePickerScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-                            const SizedBox(height: 20), // Push logo to top
-
+              const SizedBox(height: 20), // Push logo to top
               // Logo at top
               Center(
                 child: Image.asset(
@@ -31,8 +33,8 @@ class RolePickerScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 40,
                   fontFamily: 'LeagueSpartan',
-                      height: 0.5, 
-                      fontWeight: FontWeight.w700,
+                  height: 0.5,
+                  fontWeight: FontWeight.w700,
                   color: Color(0xFF3F51B5),
                 ),
               ),
@@ -45,7 +47,7 @@ class RolePickerScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontFamily: 'LeagueSpartan',
-                      height: 0.5, 
+                  height: 0.5,
                   color: Color(0xFF656565),
                 ),
               ),
@@ -57,8 +59,15 @@ class RolePickerScreen extends StatelessWidget {
                 width: 232,
                 height: 243,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Navigate to cot phone setup
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('role', 'cot');
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CotHomeScreen(),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFFB74D),
@@ -69,10 +78,13 @@ class RolePickerScreen extends StatelessWidget {
                   child: const Text(
                     'Cot\nPhone',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 25, fontFamily: 'LeagueSpartan',
-                      height: 1, 
+                    style: TextStyle(
+                      fontSize: 25,
+                      fontFamily: 'LeagueSpartan',
+                      height: 1,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white),
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
@@ -84,8 +96,15 @@ class RolePickerScreen extends StatelessWidget {
                 width: 232,
                 height: 243,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Navigate to parent phone setup
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('role', 'parent');
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CreatePinScreen(),
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF94ACFF),
@@ -96,10 +115,13 @@ class RolePickerScreen extends StatelessWidget {
                   child: const Text(
                     'Parent\nPhone',
                     textAlign: TextAlign.center,
-                    style:   TextStyle(fontSize: 25, fontFamily: 'LeagueSpartan',
-                      height: 1, 
+                    style: TextStyle(
+                      fontSize: 25,
+                      fontFamily: 'LeagueSpartan',
+                      height: 1,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white),
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
