@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:coocue/screens/parent_dashboard_screen.dart';
+import 'package:coocue/screens/parent_home_screen.dart';
 
 class SetupSecurityQuestionScreen extends StatefulWidget {
   const SetupSecurityQuestionScreen({super.key});
@@ -169,7 +169,7 @@ class _SetupSecurityQuestionScreenState
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ParentDashboardScreen(),
+                          builder: (_) => const ParentHomeScreen(),
                         ),
                       );
                     },

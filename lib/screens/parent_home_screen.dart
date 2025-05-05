@@ -5,15 +5,16 @@ import 'package:coocue/screens/pair_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:coocue/screens/parent_stream_view_screen.dart';
 
-class ParentDashboardScreen extends StatefulWidget {
-  const ParentDashboardScreen({super.key});
+class ParentHomeScreen extends StatefulWidget {
+  const ParentHomeScreen({super.key});
 
   @override
-  State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
+  State<ParentHomeScreen> createState() => _ParentHomeScreenState();
 }
 
-class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
+class _ParentHomeScreenState extends State<ParentHomeScreen> {
   String? pairedId;
   bool isLoading = true; // Add loading state
   bool isViewingActive = false; // Track if viewing is active
@@ -21,10 +22,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   late final Stream<String> imageStream;
   RTCPeerConnection? _peer;
+
   MediaStream? _remoteStream;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
-
+  
+  RTCMediaStreamTrack? _talkTrack;
+  RTCRtpSender? _talkSender;
+  bool _isTalking = false;
   @override
   void initState() {
     super.initState();
@@ -64,7 +69,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       return;
     }
 
-    // Make sure we close any existing connection first
     _closeConnection();
 
     setState(() => isLoading = true);
@@ -72,54 +76,61 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     try {
       final callRef = _db.collection('calls').doc(pairedId!);
 
-      // Create new peer connection
       _peer = await createPeerConnection({
         'iceServers': [
           {'urls': 'stun:stun.l.google.com:19302'},
         ],
       });
+      _peer!.onIceCandidate = (RTCIceCandidate? cand) {
+        if (cand != null) {
+          callRef.collection('answersCandidates').add({
+            'candidate': cand.candidate,
+            'sdpMid': cand.sdpMid,
+            'sdpMLineIndex': cand.sdpMLineIndex,
+          });
+        }
+      };
 
-      // Set up track handler
-      _peer?.onTrack = (ev) {
-        if (ev.streams.isNotEmpty && mounted) {
+      _peer!.onTrack = (event) {
+        if (event.streams.isNotEmpty && mounted) {
           setState(() {
-            _remoteStream = ev.streams[0];
+            _remoteStream = event.streams[0];
             _remoteRenderer.srcObject = _remoteStream;
             isViewingActive = true;
           });
         }
       };
-
-      // Check if offer exists in Firestore
       final snap = await callRef.get();
-      if (!snap.exists || !snap.data()!.containsKey('offer')) {
-        throw Exception("No active broadcast found for this device");
+      if (!snap.exists || !(snap.data()!.containsKey('offer'))) {
+        throw Exception('No active broadcast found for this device');
       }
-
       final offer = snap.data()!['offer'];
-      await _peer?.setRemoteDescription(
+      await _peer!.setRemoteDescription(
         RTCSessionDescription(offer['sdp'], offer['type']),
       );
 
-      // Create and set answer
-      final answer = await _peer?.createAnswer();
-      if (answer != null) {
-        await _peer?.setLocalDescription(answer);
-        await callRef.update({'answer': answer.toMap()});
-      }
+      final answer = await _peer!.createAnswer();
+      await _peer!.setLocalDescription(answer);
+      await callRef.update({'answer': answer.toMap()});
 
       // Listen for ICE candidates
-      callRef.collection('offersCandidates').snapshots().listen((ch) {
-        for (var dc in ch.docChanges) {
-          if (dc.type == DocumentChangeType.added) {
-            final d = dc.doc.data()!;
-            _peer?.addCandidate(
-              RTCIceCandidate(d['candidate'], d['sdpMid'], d['sdpMLineIndex']),
-            );
-          }
-        }
-      });
-
+      callRef
+          .collection('offersCandidates') // <- correct spelling
+          .snapshots()
+          .listen((snapshot) {
+            for (var change in snapshot.docChanges) {
+              if (change.type == DocumentChangeType.added) {
+                final data = change.doc.data()!;
+                _peer!.addCandidate(
+                  RTCIceCandidate(
+                    data['candidate'],
+                    data['sdpMid'],
+                    data['sdpMLineIndex'],
+                  ),
+                );
+              }
+            }
+          });
       // Add connection state change listener
       _peer?.onConnectionState = (state) {
         debugPrint("📡 WebRTC connection state changed: $state");
@@ -300,66 +311,146 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       const SizedBox(height: 12),
 
                       // Video container
-                      Container(
-                        height: 200,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child:
-                            isViewingActive && _remoteStream != null
-                                ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: RTCVideoView(
-                                    _remoteRenderer,
-                                    objectFit:
-                                        RTCVideoViewObjectFit
-                                            .RTCVideoViewObjectFitCover,
-                                  ),
-                                )
-                                : Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.videocam_off,
-                                        size: 48,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      const Text(
-                                        'Camera feed not available',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontFamily: 'LeagueSpartan',
+                      // Container(
+                      //   height: 200,
+                      //   width: double.infinity,
+                      //   decoration: BoxDecoration(
+                      //     color: Colors.black.withOpacity(0.1),
+                      //     borderRadius: BorderRadius.circular(16),
+                      //     border: Border.all(color: Colors.grey.shade300),
+                      //   ),
+                      //   child:
+                      //       isViewingActive && _remoteStream != null
+                      //           ? ClipRRect(
+                      //             borderRadius: BorderRadius.circular(16),
+                      //             child: RTCVideoView(
+                      //               _remoteRenderer,
+                      //               objectFit:
+                      //                   RTCVideoViewObjectFit
+                      //                       .RTCVideoViewObjectFitCover,
+                      //             ),
+                      //           )
+                      //           : Center(
+                      //             child: Column(
+                      //               mainAxisAlignment: MainAxisAlignment.center,
+                      //               children: [
+                      //                 Icon(
+                      //                   Icons.videocam_off,
+                      //                   size: 48,
+                      //                   color: Colors.grey.shade600,
+                      //                 ),
+                      //                 const SizedBox(height: 12),
+                      //                 const Text(
+                      //                   'Camera feed not available',
+                      //                   style: TextStyle(
+                      //                     color: Colors.grey,
+                      //                     fontFamily: 'LeagueSpartan',
+                      //                   ),
+                      //                 ),
+                      //                 const SizedBox(height: 16),
+                      //                 ElevatedButton(
+                      //                   onPressed:
+                      //                       isPaired ? _startViewing : null,
+                      //                   style: ElevatedButton.styleFrom(
+                      //                     backgroundColor: const Color(
+                      //                       0xFF3F51B5,
+                      //                     ),
+                      //                     shape: RoundedRectangleBorder(
+                      //                       borderRadius: BorderRadius.circular(
+                      //                         12,
+                      //                       ),
+                      //                     ),
+                      //                   ),
+                      //                   child: const Text(
+                      //                     'Connect to Cot',
+                      //                     style: TextStyle(color: Colors.white),
+                      //                   ),
+                      //                 ),
+                      //               ],
+                      //             ),
+                      //           ),
+                      // ),
+                      GestureDetector(
+                        onTap: () {
+                          if (isPaired) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const StreamPreviewScreen(),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Please pair with a Cot device first',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        child: Container(
+                          height: 200,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child:
+                              isViewingActive && _remoteStream != null
+                                  ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: RTCVideoView(
+                                      _remoteRenderer,
+                                      objectFit:
+                                          RTCVideoViewObjectFit
+                                              .RTCVideoViewObjectFitCover,
+                                    ),
+                                  )
+                                  : Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.videocam_off,
+                                          size: 48,
+                                          color: Colors.grey.shade600,
                                         ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      ElevatedButton(
-                                        onPressed:
-                                            isPaired ? _startViewing : null,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(
-                                            0xFF3F51B5,
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          'Camera feed not available',
+                                          style: TextStyle(
+                                            color: Colors.grey,
+                                            fontFamily: 'LeagueSpartan',
                                           ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton(
+                                          onPressed:
+                                              isPaired ? _startViewing : null,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(
+                                              0xFF3F51B5,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Connect to Cot',
+                                            style: TextStyle(
+                                              color: Colors.white,
                                             ),
                                           ),
                                         ),
-                                        child: const Text(
-                                          'Connect to Cot',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
+                        ),
                       ),
-
                       const SizedBox(height: 24),
                       const Text(
                         'Quick Actions',

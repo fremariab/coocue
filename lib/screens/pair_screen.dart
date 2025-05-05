@@ -2,7 +2,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:coocue/screens/parent_dashboard_screen.dart';
+import 'package:coocue/screens/parent_home_screen.dart';
 
 class PairScreen extends StatefulWidget {
   const PairScreen({super.key});
@@ -44,7 +44,7 @@ class _PairScreenState extends State<PairScreen> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
+        MaterialPageRoute(builder: (_) => const ParentHomeScreen()),
       );
     } on FirebaseFunctionsException catch (e) {
       debugPrint('❌ [PairScreen] function error: ${e.code} ${e.message}');

@@ -1,7 +1,6 @@
 // lib/screens/cot_camera_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:coocue/services/webrtc_service.dart';
@@ -15,7 +14,6 @@ class CotCameraScreen extends StatefulWidget {
 }
 
 class _CotCameraScreenState extends State<CotCameraScreen> {
-  final _storage = FlutterSecureStorage();
   bool _streaming = false;
 
   @override
@@ -34,7 +32,10 @@ class _CotCameraScreenState extends State<CotCameraScreen> {
   Future<RTCVideoRenderer> _makeRenderer() async {
     final renderer = RTCVideoRenderer();
     await renderer.initialize();
+    
     renderer.srcObject = WebRTCService.instance.localStream;
+  renderer.muted = true;          // ← bool property, not a method
+        // belt‑and‑suspenders
     return renderer;
   }
 
@@ -49,18 +50,20 @@ class _CotCameraScreenState extends State<CotCameraScreen> {
     return Scaffold(
       appBar: AppBar(title: Text('Cot Broadcast')),
       body: Center(
-        child: !_streaming
-          ? ElevatedButton(
-              onPressed: _start,
-              child: Text('Start Broadcast'),
-            )
-          : FutureBuilder<RTCVideoRenderer>(
-              future: _makeRenderer(),
-              builder: (_, snap) {
-                if (!snap.hasData) return CircularProgressIndicator();
-                return RTCVideoView(snap.data!);
-              },
-            ),
+        child:
+            !_streaming
+                ? ElevatedButton(
+                  onPressed: _start,
+                  child: Text('Start Broadcast'),
+                )
+                : FutureBuilder<RTCVideoRenderer>(
+                  future: _makeRenderer(),
+                  
+                  builder: (_, snap) {
+                    if (!snap.hasData) return CircularProgressIndicator();
+                    return RTCVideoView(snap.data!);
+                  },
+                ),
       ),
     );
   }

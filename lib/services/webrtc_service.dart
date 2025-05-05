@@ -21,7 +21,11 @@ class WebRTCService {
 
     // 1️⃣ get user media
     _localStream ??= await navigator.mediaDevices.getUserMedia({
-      'audio': true,
+      'audio': {
+    'echoCancellation': true,
+    'noiseSuppression': true,
+    'autoGainControl': true,
+  },
       'video': {'facingMode': 'user'},
     });
 

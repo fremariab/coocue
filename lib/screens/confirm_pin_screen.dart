@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:coocue/src/security.dart';
 import 'package:coocue/screens/setup_security_question_screen.dart';
-import 'package:coocue/screens/parent_dashboard_screen.dart';
+import 'package:coocue/screens/parent_home_screen.dart';
 
 class ConfirmPinScreen extends StatefulWidget {
   final String initialPin;
@@ -44,7 +44,7 @@ class _ConfirmPinScreenState extends State<ConfirmPinScreen> {
             // we have a Q&A already -> skip straight to dashboard
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
+              MaterialPageRoute(builder: (_) => const ParentHomeScreen()),
             );
           } else {
             // first time -> let them set up Q&A
@@ -216,7 +216,7 @@ class _ConfirmPinScreenState extends State<ConfirmPinScreen> {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const ParentDashboardScreen(),
+                                  builder: (_) => const ParentHomeScreen(),
                                 ),
                               );
                             } else {

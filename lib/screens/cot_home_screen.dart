@@ -2,7 +2,6 @@ import 'package:coocue/screens/display_code_screen.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:uuid/uuid.dart';
 import 'package:coocue/screens/cot_camera_screen.dart';
 
 enum CotStatus { waitingToPair, idle }
@@ -17,12 +16,10 @@ class CotHomeScreen extends StatefulWidget {
 class _CotHomeScreenState extends State<CotHomeScreen> {
   // storage & UUID (UUID not needed here, but kept for symmetry)
   final _storage = FlutterSecureStorage();
-  final _uuid = Uuid();
 
   // keys must match DisplayCodeScreen
   static const _codeKey = 'pair_code';
   static const _idKey = 'pair_id';
-  static const _expiryKey = 'pair_expiry';
   static const _isPairedKey = 'is_paired'; // Added for clarity
 
   CotStatus _status = CotStatus.waitingToPair;

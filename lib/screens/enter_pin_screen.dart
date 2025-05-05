@@ -1,4 +1,4 @@
-import 'package:coocue/screens/parent_dashboard_screen.dart';
+import 'package:coocue/screens/parent_home_screen.dart';
 import 'package:coocue/screens/reset_pin_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -56,7 +56,7 @@ class _EnterPinScreenState extends State<EnterPinScreen> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const ParentDashboardScreen()),
+        MaterialPageRoute(builder: (_) => const ParentHomeScreen()),
       );
     } else {
       setState(() {
