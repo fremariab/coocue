@@ -24,7 +24,7 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
   static const _idKey = 'pair_id';
   static const _expiryKey = 'pair_expiry';
   static const _isPairedKey = 'is_paired'; // Added for clarity
-  
+
   CotStatus _status = CotStatus.waitingToPair;
   String? _pairId; // Store the pair ID in memory
 
@@ -37,16 +37,16 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
   Future<void> _refreshStatus() async {
     final pairedFlag = await _storage.read(key: _isPairedKey);
     _pairId = await _storage.read(key: _idKey);
-    
+
     debugPrint("-----------------\n REFRESH STATUS\n---------------");
     debugPrint("Is paired: $pairedFlag");
     debugPrint("Pair ID: $_pairId");
-    
+
     if (pairedFlag == 'true' && _pairId != null && _pairId!.isNotEmpty) {
       setState(() => _status = CotStatus.idle);
       return;
     }
-    
+
     // If not properly paired, check if we have a code that can serve as ID
     if (_pairId == null || _pairId!.isEmpty) {
       // Try to read the code as backup (in DisplayCodeScreen, code is also stored as ID)
@@ -58,24 +58,14 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
         debugPrint("Using code as pair ID: $_pairId");
       }
     }
-    
-    setState(() => _status = CotStatus.waitingToPair);
-  }
 
-  Future<void> _ensurePairId() async {
-    // If we still don't have a pair ID, generate one
-    if (_pairId == null || _pairId!.isEmpty) {
-      final code = (_uuid.v4().hashCode.abs() % 900000 + 100000).toString();
-      await _storage.write(key: _idKey, value: code);
-      _pairId = code;
-      debugPrint("Generated new pair ID: $_pairId");
-    }
+    setState(() => _status = CotStatus.waitingToPair);
   }
 
   @override
   Widget build(BuildContext context) {
     final isWaiting = _status == CotStatus.waitingToPair;
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FC),
       body: SafeArea(
@@ -143,22 +133,20 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton.icon(
+                  // CotHomeScreen – inside the onPressed of “View Live Camera”
                   onPressed: () async {
-                    debugPrint("-----------------\n PUSHED BUTTON\n---------------");
-                    
-                    // Make sure we have a pair ID
-                    if (_pairId == null || _pairId!.isEmpty) {
-                      await _ensurePairId();
-                    }
-                    
-                    debugPrint("-----------------\n pairid\n---------------");
-                    debugPrint(_pairId);
-                    
-                    if (_pairId != null && _pairId!.isNotEmpty) {
+                    await _refreshStatus(); // ← force‑reload just before we need it
+
+                    if (_status == CotStatus.idle &&
+                        _pairId != null &&
+                        _pairId!.isNotEmpty) {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => CotCameraScreen(pairId: _pairId!),
+                          builder:
+                              (_) => CotCameraScreen(
+                                pairId: _pairId!,
+                              ), // now fresh
                         ),
                       );
                     } else {
@@ -202,15 +190,17 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () async {
-                      // Always refresh before showing code
-                      await _refreshStatus();
-                      if (_status == CotStatus.waitingToPair) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const DisplayCodeScreen(),
-                          ),
-                        );
+                      // Push the pairing screen and wait for its result
+                      final paired = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DisplayCodeScreen(),
+                        ),
+                      );
+
+                      // If the child popped with “true”, pull fresh data
+                      if (paired == true) {
+                        await _refreshStatus();
                       }
                     },
                     style: ElevatedButton.styleFrom(

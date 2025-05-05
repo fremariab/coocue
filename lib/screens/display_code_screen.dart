@@ -40,29 +40,29 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
     FirebaseMessaging.onMessage.listen((msg) async {
       debugPrint("-----------------\nPair message received\n---------------");
       debugPrint("Message data: ${msg.data}");
-      
+
       if (msg.data['type'] == 'PAIRED') {
-        // Get pair ID either from message or use our own code
         String pairId;
-        if (msg.data['pairId'] != null && msg.data['pairId'].toString().isNotEmpty) {
+        if (msg.data['pairId'] != null &&
+            msg.data['pairId'].toString().isNotEmpty) {
           pairId = msg.data['pairId'].toString();
           debugPrint("Using server-provided pairId: $pairId");
         } else {
-          // If no ID provided, use our own code as the ID
           pairId = pairingCode ?? '';
           debugPrint("Using local code as pairId: $pairId");
         }
-        
-        // Store both values
-await _storage.write(key: _isPairedKey, value: 'true');
+
+        await _storage.write(key: _isPairedKey, value: 'true');
         await _storage.write(key: _idKey, value: pairId);
-        
-        // Debug check the stored values
+
         final storedPairId = await _storage.read(key: _idKey);
         final isPaired = await _storage.read(key: _isPairedKey);
-        debugPrint("Stored values - isPaired: $isPaired, pairId: $storedPairId");
-        
-        if (mounted) Navigator.pop(context);
+        debugPrint(
+          "Stored values - isPaired: $isPaired, pairId: $storedPairId",
+        );
+
+        if (mounted)
+          Navigator.pop(context, true);
       }
     });
   }
@@ -84,23 +84,20 @@ await _storage.write(key: _isPairedKey, value: 'true');
     final expiry = DateTime.now().add(const Duration(minutes: 1));
     final expIso = expiry.toIso8601String();
 
-    // 1️⃣ Store locally for your UI
     await _storage.write(key: _codeKey, value: code);
     await _storage.write(key: _expiryKey, value: expIso);
-    await _storage.write(key: _idKey, value: code); // Also store as the pair ID
-    
+    await _storage.write(key: _idKey, value: code); 
+
     debugPrint("-----------------\nGenerated new code\n---------------");
     debugPrint("Code: $code");
     debugPrint("Stored as pair_id: $code");
 
-    // 2️⃣ Also write to Firestore for server-side verification
     await FirebaseFirestore.instance.collection('pairingCodes').doc(code).set({
       'createdAt': FieldValue.serverTimestamp(),
-      'expiresAt': expiry, // as a Timestamp
-      'used': false, // mark unused initially
+      'expiresAt': expiry,  
+      'used': false,  
     });
 
-    // 3️⃣ Subscribe locally for FCM
     await FirebaseMessaging.instance.subscribeToTopic('pair_$code');
 
     setState(() {
@@ -118,7 +115,7 @@ await _storage.write(key: _isPairedKey, value: 'true');
         countdownTimer?.cancel();
         setState(() => pairingCode = null);
       } else {
-        setState(() {}); // to refresh the timer display
+        setState(() {});  
       }
     });
   }
@@ -150,7 +147,6 @@ await _storage.write(key: _isPairedKey, value: 'true');
             children: [
               const SizedBox(height: 20),
 
-              // Logo
               Image.asset('assets/images/coocue_logo2.png', height: 40),
 
               const SizedBox(height: 30),
@@ -180,25 +176,24 @@ await _storage.write(key: _isPairedKey, value: 'true');
 
               const SizedBox(height: 65),
 
-              // Code Display
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: digits.map((d) {
-                  return Text(
-                    d,
-                    style: const TextStyle(
-                      fontSize: 36,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'LeagueSpartan',
-                      color: Color(0xff3F51B5),
-                    ),
-                  );
-                }).toList(),
+                children:
+                    digits.map((d) {
+                      return Text(
+                        d,
+                        style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'LeagueSpartan',
+                          color: Color(0xff3F51B5),
+                        ),
+                      );
+                    }).toList(),
               ),
 
               const SizedBox(height: 32),
 
-              // Expiry Time
               Text(
                 pairingCode != null
                     ? 'Expires in ${_formatDuration()}'
@@ -212,7 +207,6 @@ await _storage.write(key: _isPairedKey, value: 'true');
 
               const SizedBox(height: 40),
 
-              // Regenerate Code Button
               SizedBox(
                 width: double.infinity,
                 height: 48,
