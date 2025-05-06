@@ -1,3 +1,4 @@
+import 'package:coocue/screens/app_library_screen.dart';
 import 'package:flutter/material.dart';
 import 'dart:math' as math; // Import dart:math library
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -6,6 +7,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:coocue/screens/parent_stream_view_screen.dart';
+import 'package:coocue/screens/lullaby_library_screen.dart';
+import 'package:coocue/models/lullaby.dart';
+import 'package:coocue/services/library_manager.dart';
 
 class ParentHomeScreen extends StatefulWidget {
   const ParentHomeScreen({super.key});
@@ -265,6 +269,62 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     });
   }
 
+  void _openStreamView() async {
+    if (pairedId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please pair with a Cot device first')),
+      );
+      return;
+    }
+
+    // 1) Ensure connection is up and audio un-muted
+    await _startViewing();
+    _setRemoteAudioEnabled(true);
+
+    // 2) Navigate, passing handlers & renderer
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => ParentStreamViewScreen(
+              remoteRenderer: _remoteRenderer,
+              onToggleTalk: _toggleTalk,
+              isTalking: _isTalking,
+              onPlayLullaby: () async {
+                // 1) make sure you actually have at least one lullaby
+                if (LibraryManager.I.personalLibrary.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No lullabies available to play.'),
+                    ),
+                  );
+                  return;
+                }
+
+                // 2) pick whichever Lullaby you want (here: the first)
+                final Lullaby lullaby = LibraryManager.I.personalLibrary.first;
+
+                // 3) send your play command using the real asset & title
+                await FirebaseFirestore.instance
+                    .collection('pairs')
+                    .doc(pairedId)
+                    .collection('commands')
+                    .add({
+                      'type': 'play',
+                      'assetPath': lullaby.asset,
+                      'title': lullaby.title,
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Playing "${lullaby.title}" on cot')),
+                );
+              },
+            ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isPaired = pairedId != null;
@@ -290,12 +350,13 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                       const SizedBox(height: 24),
                       const Center(
                         child: Text(
-                          'Dashboard',
+                          'Parent\nHome',
                           style: TextStyle(
-                            fontSize: 32,
+                            fontSize: 40,
                             fontFamily: 'LeagueSpartan',
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF3F51B5),
+                            height: 1,
                           ),
                         ),
                       ),
@@ -341,85 +402,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Video container
-                      // Container(
-                      //   height: 200,
-                      //   width: double.infinity,
-                      //   decoration: BoxDecoration(
-                      //     color: Colors.black.withOpacity(0.1),
-                      //     borderRadius: BorderRadius.circular(16),
-                      //     border: Border.all(color: Colors.grey.shade300),
-                      //   ),
-                      //   child:
-                      //       isViewingActive && _remoteStream != null
-                      //           ? ClipRRect(
-                      //             borderRadius: BorderRadius.circular(16),
-                      //             child: RTCVideoView(
-                      //               _remoteRenderer,
-                      //               objectFit:
-                      //                   RTCVideoViewObjectFit
-                      //                       .RTCVideoViewObjectFitCover,
-                      //             ),
-                      //           )
-                      //           : Center(
-                      //             child: Column(
-                      //               mainAxisAlignment: MainAxisAlignment.center,
-                      //               children: [
-                      //                 Icon(
-                      //                   Icons.videocam_off,
-                      //                   size: 48,
-                      //                   color: Colors.grey.shade600,
-                      //                 ),
-                      //                 const SizedBox(height: 12),
-                      //                 const Text(
-                      //                   'Camera feed not available',
-                      //                   style: TextStyle(
-                      //                     color: Colors.grey,
-                      //                     fontFamily: 'LeagueSpartan',
-                      //                   ),
-                      //                 ),
-                      //                 const SizedBox(height: 16),
-                      //                 ElevatedButton(
-                      //                   onPressed:
-                      //                       isPaired ? _startViewing : null,
-                      //                   style: ElevatedButton.styleFrom(
-                      //                     backgroundColor: const Color(
-                      //                       0xFF3F51B5,
-                      //                     ),
-                      //                     shape: RoundedRectangleBorder(
-                      //                       borderRadius: BorderRadius.circular(
-                      //                         12,
-                      //                       ),
-                      //                     ),
-                      //                   ),
-                      //                   child: const Text(
-                      //                     'Connect to Cot',
-                      //                     style: TextStyle(color: Colors.white),
-                      //                   ),
-                      //                 ),
-                      //               ],
-                      //             ),
-                      //           ),
-                      // ),
                       GestureDetector(
-                        onTap: () {
-                          if (isPaired) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const StreamPreviewScreen(),
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Please pair with a Cot device first',
-                                ),
-                              ),
-                            );
-                          }
-                        },
+                        onTap: _openStreamView,
                         child: Container(
                           height: 200,
                           width: double.infinity,
@@ -534,9 +518,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      _isTalking
-                                          ? 'Stop Talking'
-                                          : 'Start Talking',
+                                      _isTalking ? 'Stop Talking' : 'Talk',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontFamily: 'LeagueSpartan',
@@ -558,14 +540,12 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                               onTap:
                                   isPaired
                                       ? () {
-                                        // TODO: Implement Play Lullaby functionality
-                                        ScaffoldMessenger.of(
+                                        Navigator.push(
                                           context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Lullaby feature coming soon!',
-                                            ),
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) =>
+                                                    const LullabyLibraryScreen(),
                                           ),
                                         );
                                       }

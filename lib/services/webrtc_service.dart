@@ -43,7 +43,7 @@ class WebRTCService {
         await hiddenRenderer.initialize();
 
         hiddenRenderer.srcObject = event.streams.first; // attaches audio
-        Helper.setSpeakerphoneOn(true); // plays through speaker
+        Helper.setSpeakerphoneOn(false); // 🟢 mute speaker initially
       }
     };
 

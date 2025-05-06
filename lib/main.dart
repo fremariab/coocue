@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:coocue/services/cot_audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:coocue/screens/splash_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:coocue/utils/session_manager.dart';
 import 'package:coocue/firebase_options.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 void main() async {
   await dotenv.load();
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +18,20 @@ void main() async {
     app: Firebase.app(),
     databaseId: 'coocue', // <-- exactly the DB ID from the console
   );
+
+ // 1️⃣ Read the user’s role
+  final prefs = await SharedPreferences.getInstance();
+  final role = prefs.getString('role');
+
+  // 2️⃣ If they’re Cot *and* already paired, start the listener
+  if (role == 'cot') {
+    final secure = const FlutterSecureStorage();
+    final pairId = await secure.read(key: 'pair_id');
+    if (pairId != null) {
+      await CotAudioService().init(pairId);
+      debugPrint('✅ CotAudioService initialized for pair $pairId');
+    }
+  }
   
   runApp(const CoocueApp());
 }
