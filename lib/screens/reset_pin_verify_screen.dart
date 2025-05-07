@@ -14,39 +14,44 @@ class _ResetPinVerifyScreenState extends State<ResetPinVerifyScreen> {
   final TextEditingController _answerController = TextEditingController();
   String errorText = '';
   String? _question;
+
   @override
   void initState() {
     super.initState();
+    // loading the saved security question when screen opens
     _loadQuestion();
   }
 
   Future<void> _loadQuestion() async {
     final q = await _storage.read(key: 'sec_question');
+    // storing the question in state so it shows on screen
     setState(() => _question = q);
   }
 
   @override
   void dispose() {
+    // clearing up the controller when screen is closed
     _answerController.dispose();
     super.dispose();
   }
 
   Future<void> _verifySecurityAnswer() async {
-    // 1. Read the stored (normalized) answer
+    // getting the saved answer from secure storage
     final stored = await _storage.read(key: 'sec_answer');
     final input = _answerController.text.trim().toLowerCase();
 
     if (stored != null && input == stored) {
-      // 2. Clear the PIN salt & hash
+      // if answer is correct, delete the old pin data
       await _storage.delete(key: 'pin_salt');
       await _storage.delete(key: 'pin_hash');
 
-      // 3. Go back to Create PIN
+      // going to the CREATEPINSCREEN to set a new pin
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const CreatePinScreen()),
       );
     } else {
+      // if wrong answer, show error text
       setState(() => errorText = 'Verification failed. Please try again.');
     }
   }
@@ -55,7 +60,6 @@ class _ResetPinVerifyScreenState extends State<ResetPinVerifyScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-
       backgroundColor: const Color(0xFFF4F6FC),
       body: SafeArea(
         child: Padding(
@@ -63,8 +67,10 @@ class _ResetPinVerifyScreenState extends State<ResetPinVerifyScreen> {
           child: Column(
             children: [
               const SizedBox(height: 20),
+              // showing the COOUE LOGO at the top
               Image.asset('assets/images/coocue_logo2.png', height: 40),
               const SizedBox(height: 30),
+              // showing the RESET PIN title
               const Text(
                 'Reset PIN',
                 style: TextStyle(
@@ -75,6 +81,7 @@ class _ResetPinVerifyScreenState extends State<ResetPinVerifyScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+              // showing the security question to answer
               Text(
                 'To reset your PIN, please answer:\n\n${_question ?? ""}',
                 textAlign: TextAlign.center,
@@ -84,8 +91,8 @@ class _ResetPinVerifyScreenState extends State<ResetPinVerifyScreen> {
                   color: Color(0xFF656565),
                 ),
               ),
-
               const SizedBox(height: 60),
+              // input field for typing the answer
               TextField(
                 controller: _answerController,
                 style: TextStyle(
@@ -121,6 +128,7 @@ class _ResetPinVerifyScreenState extends State<ResetPinVerifyScreen> {
               ),
               if (errorText.isNotEmpty) ...[
                 const SizedBox(height: 8),
+                // showing error if answer is wrong
                 Text(
                   errorText,
                   style: const TextStyle(
@@ -130,6 +138,7 @@ class _ResetPinVerifyScreenState extends State<ResetPinVerifyScreen> {
                 ),
               ],
               const SizedBox(height: 50),
+              // button to verify the answer
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -151,6 +160,7 @@ class _ResetPinVerifyScreenState extends State<ResetPinVerifyScreen> {
                   ),
                 ),
               ),
+              // added image at the bottom for decoration
               Image.asset('assets/images/img4.png', height: 200),
             ],
           ),

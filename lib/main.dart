@@ -8,31 +8,38 @@ import 'package:coocue/utils/session_manager.dart';
 import 'package:coocue/firebase_options.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 void main() async {
+  // load environment variables from .env file
   await dotenv.load();
+
+  // ensure flutter widgets are initialized
   WidgetsFlutterBinding.ensureInitialized();
+
+  // initialize firebase with platform-specific options
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // Create a Firestore instance that talks to your non-default "coocue" database:
+  // create a firestore instance for the "coocue" database
   final firestore = FirebaseFirestore.instanceFor(
     app: Firebase.app(),
-    databaseId: 'coocue', // <-- exactly the DB ID from the console
+    databaseId: 'coocue',
   );
 
- // 1️⃣ Read the user’s role
+  // read the saved user role from shared preferences
   final prefs = await SharedPreferences.getInstance();
   final role = prefs.getString('role');
 
-  // 2️⃣ If they’re Cot *and* already paired, start the listener
+  // if the user is the cot and already paired, start the audio service
   if (role == 'cot') {
     final secure = const FlutterSecureStorage();
     final pairId = await secure.read(key: 'pair_id');
     if (pairId != null) {
       await CotAudioService().init(pairId);
-      debugPrint('✅ CotAudioService initialized for pair $pairId');
+      debugPrint('✅ cot audio service initialized for pair $pairId');
     }
   }
-  
+
+  // launch the app
   runApp(const CoocueApp());
 }
 
@@ -44,23 +51,26 @@ class CoocueApp extends StatefulWidget {
 }
 
 class _CoocueAppState extends State<CoocueApp> {
+  // key to manage navigation from anywhere
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
-    // Attach the SessionManager as an observer
+    // attach session manager to observe app lifecycle
     WidgetsBinding.instance.addObserver(SessionManager(navigatorKey));
   }
 
   @override
   void dispose() {
+    // remove the session manager observer
     WidgetsBinding.instance.removeObserver(SessionManager(navigatorKey));
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // set up the material app with splash screen as the home
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,

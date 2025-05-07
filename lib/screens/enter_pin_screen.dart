@@ -15,29 +15,29 @@ class EnterPinScreen extends StatefulWidget {
 }
 
 class _EnterPinScreenState extends State<EnterPinScreen> {
-  final storage = FlutterSecureStorage();
-  String pin = '';
-  String errorText = '';
-  int attempts = 0;
-  bool isLocked = false;
-  int lockSeconds = 30;
-  Timer? lockTimer;
+  final storage = FlutterSecureStorage(); // used this to securely store data like pin
+  String pin = ''; // this will hold the digits entered by user
+  String errorText = ''; // to show error message if pin is wrong
+  int attempts = 0; // to count how many times user tried wrong pin
+  bool isLocked = false; // this is to lock screen after 3 wrong tries
+  int lockSeconds = 30; // how long screen should be locked
+  Timer? lockTimer; // used to unlock screen after timer ends
 
   void _addDigit(String digit) {
+    // adding digit to pin unless locked or already 4 digits
     if (isLocked || pin.length >= 4) return;
 
     setState(() => pin += digit);
-    if (pin.length == 4) _verifyPin();
+    if (pin.length == 4) _verifyPin(); // check pin once 4 digits entered
   }
 
   void _verifyPin() async {
-    // 1. Read salt & stored hash
+    // getting stored salt and pin hash
     final salt = await Security.readSalt();
     final storedHash = await Security.readPinHash();
 
-    // 2. If no salt/hash found, force user to (re)create PIN
+    // if no salt or hash found means user has to create new pin
     if (salt == null || storedHash == null) {
-      // nothing to verify against
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const CreatePinScreen()),
@@ -45,11 +45,10 @@ class _EnterPinScreenState extends State<EnterPinScreen> {
       return;
     }
 
-    // 3. Compute the hash of the entered PIN
+    // hashing the pin entered by user using stored salt
     final inputHash = await Security.hashPin(pin, salt);
 
-
-    // 4. Compare
+    // if hashes match means correct pin entered
     if (inputHash == storedHash) {
       final prefs = await SharedPreferences.getInstance();
       prefs.setInt('last_unlock', DateTime.now().millisecondsSinceEpoch);
@@ -59,16 +58,19 @@ class _EnterPinScreenState extends State<EnterPinScreen> {
         MaterialPageRoute(builder: (_) => const ParentHomeScreen()),
       );
     } else {
+      // wrong pin entered
       setState(() {
         attempts++;
         errorText = 'Incorrect PIN';
         pin = '';
       });
+      // lock the screen after 3 wrong attempts
       if (attempts >= 3) _startLockTimer();
     }
   }
 
   void _startLockTimer() {
+    // locks the screen for few seconds
     setState(() => isLocked = true);
     lockTimer = Timer(Duration(seconds: lockSeconds), () {
       setState(() {
@@ -80,12 +82,14 @@ class _EnterPinScreenState extends State<EnterPinScreen> {
   }
 
   void _removeDigit() {
+    // remove last digit from pin
     if (pin.isNotEmpty) {
       setState(() => pin = pin.substring(0, pin.length - 1));
     }
   }
 
   Widget _buildDot(bool filled) {
+    // this builds a single dot for the pin indicator
     return Container(
       width: 15,
       height: 15,
@@ -99,6 +103,7 @@ class _EnterPinScreenState extends State<EnterPinScreen> {
   }
 
   Widget _buildButton(String label, {IconData? icon, VoidCallback? onPressed}) {
+    // builds each button in the keypad (digits or icons)
     return SizedBox(
       width: 20,
       height: 20,
@@ -110,22 +115,22 @@ class _EnterPinScreenState extends State<EnterPinScreen> {
           shape: const CircleBorder(),
           elevation: 0,
         ),
-        child:
-            icon == null
-                ? Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    color: Color(0xFF3F51B5),
-                  ),
-                )
-                : Icon(icon, size: 20, color: const Color(0xFF3F51B5)),
+        child: icon == null
+            ? Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 20,
+                  color: Color(0xFF3F51B5),
+                ),
+              )
+            : Icon(icon, size: 20, color: const Color(0xFF3F51B5)),
       ),
     );
   }
 
   @override
   void dispose() {
+    // stop the timer when screen is closed
     lockTimer?.cancel();
     super.dispose();
   }

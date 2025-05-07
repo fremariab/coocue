@@ -158,7 +158,7 @@ class _AppLibraryScreenState extends State<AppLibraryScreen> {
 
                     if (selectedLullabies.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('No tracks selected')),
+                        const SnackBar(backgroundColor:Color(0xFF3F51B5),content: Text('No tracks selected')),
                       );
                       return;
                     }

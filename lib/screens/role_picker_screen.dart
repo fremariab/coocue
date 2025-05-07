@@ -16,8 +16,8 @@ class RolePickerScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 20), // Push logo to top
-              // Logo at top
+              const SizedBox(height: 20),
+              // showing the COOUE LOGO at the top center
               Center(
                 child: Image.asset(
                   'assets/images/coocue_logo2.png',
@@ -27,7 +27,7 @@ class RolePickerScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
 
-              // Heading
+              // showing the CHOOSE A ROLE title
               const Text(
                 'Choose a Role',
                 style: TextStyle(
@@ -41,7 +41,7 @@ class RolePickerScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Subtext
+              // subtext for giving extra info about the selection
               const Text(
                 'Choose how this device will be used',
                 style: TextStyle(
@@ -54,14 +54,17 @@ class RolePickerScreen extends StatelessWidget {
 
               const SizedBox(height: 40),
 
-              // Cot Phone Button
+              // button for selecting COT role
               SizedBox(
                 width: 232,
                 height: 243,
                 child: ElevatedButton(
                   onPressed: () async {
+                    // saving COT role in shared preferences
                     final prefs = await SharedPreferences.getInstance();
                     await prefs.setString('role', 'cot');
+
+                    // going to COTHOMESCREEN after saving role
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
@@ -91,14 +94,17 @@ class RolePickerScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Parent Phone Button
+              // button for selecting PARENT role
               SizedBox(
                 width: 232,
                 height: 243,
                 child: ElevatedButton(
                   onPressed: () async {
+                    // saving PARENT role in shared preferences
                     final prefs = await SharedPreferences.getInstance();
                     await prefs.setString('role', 'parent');
+
+                    // going to CREATEPINSCREEN after saving role
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(

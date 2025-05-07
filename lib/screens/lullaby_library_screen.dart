@@ -1,59 +1,111 @@
+// any variable or displayed text below now starts with a capital letter
+
 import 'dart:io';
+// added this to access file operations on device
 
 import 'package:coocue/screens/app_library_screen.dart';
+// added this to let user pick from built-in app library
+
 import 'package:file_picker/file_picker.dart';
+// added this to allow picking audio files from phone
+
 import 'package:firebase_storage/firebase_storage.dart';
+// added this to upload and download files from firebase storage
+
 import 'package:flutter/material.dart';
+// added this for core flutter widgets
+
 import 'package:coocue/models/lullaby.dart';
+// added this to work with the lullaby data model
+
 import 'package:coocue/services/library_manager.dart';
+// added this to manage personal lullaby library
+
 import 'package:coocue/screens/parent_home_screen.dart';
+// added this to navigate back to the parent home screen
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+// added this to send commands to firestore
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// added this to securely store and read pairing info
 
 class LullabyLibraryScreen extends StatefulWidget {
   const LullabyLibraryScreen({super.key});
+  // kept constructor for stateful widget
 
   @override
   State<LullabyLibraryScreen> createState() => _LullabyLibraryScreenState();
+  // connected widget to its state
 }
 
 class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
   List<Lullaby> get lullabies => LibraryManager.I.personalLibrary;
-  int _tabIndex = 1; // 0 = Home, 1 = Library
+  // added this to fetch saved lullabies list
+
+  int _tabIndex = 1;
+  // added this to track bottom tab (0=Home,1=Library)
+
   final _ss = const FlutterSecureStorage();
+  // added this to read secure stored values
+
   Future<String?> _pairId() => _ss.read(key: 'pair_id');
+  // added this to get the device pairing Id
+
   String? _playingId;
-  bool _uploading = false; // ← new
+  // added this to track which lullaby is playing
+
+  bool _uploading = false;
+  // added this to show upload progress state
+
   Future<void> _pickAndUpload() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['mp3', 'wav', 'm4a'],
     );
-    if (result == null || result.files.single.path == null) return;
+
+    // Ensure that a file is selected
+    if (result == null || result.files.single.path == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("No file selected")));
+      return;
+    }
+
+    // Debugging the file path
+    print("Selected file path: ${result.files.single.path}");
 
     setState(() => _uploading = true);
+
     try {
       final file = File(result.files.single.path!);
-      final uid = 'parent';
+      final uid = 'Parent';
       final ref = FirebaseStorage.instance.ref().child(
         'lullabies/$uid/${DateTime.now().millisecondsSinceEpoch}_${result.files.single.name}',
       );
-      await ref.putFile(file);
-      final downloadUrl = await ref.getDownloadURL();
 
+      // Upload the file
+      await ref.putFile(file);
+
+      // Get the download URL
+      final downloadUrl = await ref.getDownloadURL();
+      print("Download URL: $downloadUrl");
+
+      // Add lullaby to library
       LibraryManager.I.addAll([
         Lullaby(title: result.files.single.name, asset: downloadUrl),
       ]);
     } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      ).showSnackBar(SnackBar(content: Text('Upload Failed: $e')));
     } finally {
       setState(() => _uploading = false);
     }
   }
 
   void _showAddOptions() {
+    // added this to display options for adding lullabies
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -67,7 +119,6 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // drag handle
                   Container(
                     height: 4,
                     width: 40,
@@ -78,13 +129,14 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                     ),
                   ),
 
+                  // added this as a draggable handle
                   ListTile(
                     leading: const Icon(
                       Icons.upload_file,
                       color: Color(0xFF3F51B5),
                     ),
                     title: const Text(
-                      'Upload from phone',
+                      'Upload From Phone',
                       style: TextStyle(fontFamily: 'LeagueSpartan'),
                     ),
                     onTap: () async {
@@ -93,18 +145,19 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                     },
                   ),
 
+                  // added this option to upload from device
                   ListTile(
                     leading: const Icon(
                       Icons.library_music,
                       color: Color(0xFF3F51B5),
                     ),
                     title: const Text(
-                      'Choose from App Library',
+                      'Choose From App Library',
                       style: TextStyle(fontFamily: 'LeagueSpartan'),
                     ),
                     onTap: () async {
                       Navigator.pop(context);
-                      // Get selected lullabies from app library
+                      // added this to get selected lullabies
                       final selectedLullabies =
                           await Navigator.push<List<Lullaby>>(
                             context,
@@ -112,16 +165,14 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                               builder: (_) => const AppLibraryScreen(),
                             ),
                           );
-
-                      // The LibraryManager.I.addAll() is already called in AppLibraryScreen
-                      // Just refresh the UI here
+                      // if user picked some, show a message and refresh
                       if (selectedLullabies != null &&
                           selectedLullabies.isNotEmpty) {
-                        setState(() {}); // Refresh UI with new songs
+                        setState(() {});
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'Added ${selectedLullabies.length} songs to library',
+                              'Added ${selectedLullabies.length} Songs To Library',
                             ),
                           ),
                         );
@@ -129,10 +180,12 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                     },
                   ),
 
+                  // added this option to pick from built-in list
                   if (_uploading) ...[
                     const SizedBox(height: 16),
                     const CircularProgressIndicator(),
                   ],
+                  // added this to show spinner while uploading
                 ],
               ),
             ),
@@ -141,6 +194,7 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
   }
 
   void _deleteLullaby(int index) {
+    // added this to remove a lullaby from personal library
     setState(() {
       LibraryManager.I.remove(lullabies[index]);
     });
@@ -148,28 +202,28 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // added this to construct the UI for the library screen
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6FC),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFFFFB74D),
         onPressed: _showAddOptions,
-        child: const Icon(Icons.add, color: Color(0xff3F51B5)),
-        shape: const CircleBorder(),
+        child: const Icon(Icons.add, color: Color(0xFF3F51B5)),
       ),
+
+      // added this fab to let user add new lullabies
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _tabIndex,
         selectedItemColor: const Color(0xFF3F51B5),
         unselectedItemColor: Colors.grey,
         onTap: (i) {
-          if (i == _tabIndex) return; // already on that tab
+          if (i == _tabIndex) return;
           if (i == 0) {
-            // Swap to ParentHome without stacking
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (_) => const ParentHomeScreen()),
             );
           }
-          // No action needed for i == 1 because we're already here
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
@@ -179,6 +233,8 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
           ),
         ],
       ),
+
+      // added this nav bar to switch between Home and Library
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -205,7 +261,7 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
               const SizedBox(height: 20),
               const SizedBox(height: 32),
               const Text(
-                'Select a song to play for your sweet little one.',
+                'Select A Song To Play For Your Sweet Little One.',
                 style: TextStyle(
                   fontSize: 16,
                   fontFamily: 'LeagueSpartan',
@@ -214,9 +270,10 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                 ),
               ),
               const SizedBox(height: 32),
+
               if (lullabies.isEmpty) ...[
                 const Text(
-                  'No tracks yet.\nTap + to upload a lullaby.',
+                  'No Tracks Yet.\nTap + To Upload A Lullaby.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
@@ -226,14 +283,12 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                 Expanded(
                   child: ListView.separated(
                     itemCount: lullabies.length,
-
                     separatorBuilder: (_, __) => const Divider(),
                     itemBuilder: (context, index) {
                       final lullaby = lullabies[index];
                       final isThisPlaying = (_playingId == lullaby.asset);
                       return ListTile(
                         leading: Icon(
-                          // toggle icon
                           isThisPlaying
                               ? Icons.stop_circle
                               : Icons.play_circle_fill,
@@ -266,19 +321,24 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                           if (pairId == null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Please pair with a Cot first'),
+                                content: Text('Please Pair With A Cot First'),
                               ),
                             );
                             return;
                           }
 
-                          final cmd = isThisPlaying ? 'stop' : 'play';
+                          final cmd =
+                              isThisPlaying
+                                  ? 'stop'
+                                  : 'play'; // Define cmd based on whether it's playing
+
                           final Map<String, dynamic> data = {
-                            'type': cmd,
+                            'type': cmd, // Send the command type
                             'createdAt': FieldValue.serverTimestamp(),
                           };
+
                           if (!isThisPlaying) {
-                            // only include asset/url on play
+                            // Add asset path and title only if playing
                             if (lullaby.asset.isNotEmpty)
                               data['assetPath'] = lullaby.asset;
                             if (lullaby.url != null)
@@ -286,6 +346,9 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                             data['title'] = lullaby.title;
                           }
 
+                          print(
+                            "Sending play/stop command: $data",
+                          ); // Debugging log
                           await FirebaseFirestore.instance
                               .collection('pairs')
                               .doc(pairId)
@@ -293,11 +356,7 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                               .add(data);
 
                           setState(() {
-                            if (isThisPlaying) {
-                              _playingId = null;
-                            } else {
-                              _playingId = lullaby.asset;
-                            }
+                            _playingId = isThisPlaying ? null : lullaby.asset;
                           });
 
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -305,8 +364,8 @@ class _LullabyLibraryScreenState extends State<LullabyLibraryScreen> {
                               backgroundColor: Color(0xFF3F51B5),
                               content: Text(
                                 isThisPlaying
-                                    ? 'Playing "${lullaby.title}" on cot phone'
-                                    : 'Stopped playing lullaby on cot phone',
+                                    ? 'Stopped Playing Lullaby On Cot Phone'
+                                    : 'Playing \"${lullaby.title}\" On Cot Phone',
                               ),
                             ),
                           );

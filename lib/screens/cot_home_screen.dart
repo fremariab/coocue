@@ -1,9 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coocue/screens/display_code_screen.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:coocue/screens/cot_camera_screen.dart';
 
+// just a status enum to check if paired or not
 enum CotStatus { waitingToPair, idle }
 
 class CotHomeScreen extends StatefulWidget {
@@ -13,24 +15,88 @@ class CotHomeScreen extends StatefulWidget {
   State<CotHomeScreen> createState() => _CotHomeScreenState();
 }
 
-class _CotHomeScreenState extends State<CotHomeScreen> {
-  // storage & UUID (UUID not needed here, but kept for symmetry)
+class _CotHomeScreenState extends State<CotHomeScreen>
+    with WidgetsBindingObserver {
+  // added this to store secure data like pair code and id
   final _storage = FlutterSecureStorage();
 
-  // keys must match DisplayCodeScreen
+  // keeping these keys same as in displaycodescreen
   static const _codeKey = 'pair_code';
   static const _idKey = 'pair_id';
-  static const _isPairedKey = 'is_paired'; // Added for clarity
+  static const _isPairedKey =
+      'is_paired'; // added this for easier status checks
+  StreamSubscription? _cmdSub;
 
+  // starting off with waiting status
   CotStatus _status = CotStatus.waitingToPair;
-  String? _pairId; // Store the pair ID in memory
+
+  // going to store the pair id here after fetching from storage
+  String? _pairId;
 
   @override
   void initState() {
     super.initState();
-    _refreshStatus();
+    WidgetsBinding.instance.addObserver(this);
+
+    _refreshStatus().then((_) {
+      // calling this first to load pairing status
+      if (_pairId != null) {
+        _listenForCommands();
+      }
+    });
   }
 
+  void _listenForCommands() {
+    // only listen once we have a pairId
+    if (_pairId == null) return;
+
+    _cmdSub = FirebaseFirestore.instance
+        .collection('pairs')
+        .doc(_pairId)
+        .collection('commands')
+        .snapshots()
+        .listen((snap) async {
+          for (var change in snap.docChanges) {
+            if (change.type == DocumentChangeType.added) {
+              final data = change.doc.data()!;
+              if (data['type'] == 'unpair') {
+                // clear cot’s storage
+                await _storage.delete(key: _isPairedKey);
+                await _storage.delete(key: _idKey);
+                setState(() => _status = CotStatus.waitingToPair);
+
+                // show a warning
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: Color(0xFF3F51B5),
+                    content: Text('Parent has unpaired. Please pair again.'),
+                  ),
+                );
+              }
+              // delete the command doc so it doesn’t re-fire:
+              await change.doc.reference.delete();
+            }
+          }
+        });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+
+    _cmdSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // whenever the resumes from background, re‐check pairing status automatically
+    if (state == AppLifecycleState.resumed) {
+      _refreshStatus();
+    }
+  }
+
+  // this checks if device is already paired or not
   Future<void> _refreshStatus() async {
     final pairedFlag = await _storage.read(key: _isPairedKey);
     _pairId = await _storage.read(key: _idKey);
@@ -41,21 +107,23 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
 
     if (pairedFlag == 'true' && _pairId != null && _pairId!.isNotEmpty) {
       setState(() => _status = CotStatus.idle);
+      // restart listener with the fresh _pairId
+      _cmdSub?.cancel();
+      _listenForCommands();
       return;
     }
 
-    // If not properly paired, check if we have a code that can serve as ID
+    // if not paired then maybe we can fallback to code
     if (_pairId == null || _pairId!.isEmpty) {
-      // Try to read the code as backup (in DisplayCodeScreen, code is also stored as ID)
       final code = await _storage.read(key: _codeKey);
       if (code != null && code.isNotEmpty) {
-        // Use the code as the pair ID if available
         await _storage.write(key: _idKey, value: code);
         _pairId = code;
         debugPrint("Using code as pair ID: $_pairId");
       }
     }
 
+    // still unpaired so keep status as waiting
     setState(() => _status = CotStatus.waitingToPair);
   }
 
@@ -125,39 +193,42 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 100),
+              const SizedBox(height: 60),
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton.icon(
-                  // CotHomeScreen – inside the onPressed of “View Live Camera”
+                  // when user clicks view live camera
                   onPressed: () async {
-                    await _refreshStatus(); // ← force‑reload just before we need it
+                    await _refreshStatus(); // just refreshing first
 
+                    // if everything is ok then go to camera screen
                     if (_status == CotStatus.idle &&
                         _pairId != null &&
                         _pairId!.isNotEmpty) {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder:
-                              (_) => CotCameraScreen(
-                                pairId: _pairId!,
-                              ), // now fresh
+                          builder: (_) => CotCameraScreen(pairId: _pairId!),
                         ),
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Please complete pairing first'),
+                          backgroundColor: Color(0xFF3F51B5),
                         ),
                       );
                     }
                   },
                   icon: const Icon(Icons.videocam, color: Colors.white),
                   label: const Text(
-                    'View Live Camera',
-                    style: TextStyle(fontSize: 18, color: Colors.white),
+                    'Start Monitoring',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.white,
+                      fontFamily: 'LeagueSpartan',
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF3F51B5),
@@ -167,6 +238,8 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 40),
+
               Text(
                 isWaiting
                     ? 'Place this phone in the crib\nand tap the button below\nto pair with the Parent Phone.'
@@ -187,7 +260,7 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () async {
-                      // Push the pairing screen and wait for its result
+                      // open the code screen and wait for result
                       final paired = await Navigator.push<bool>(
                         context,
                         MaterialPageRoute(
@@ -195,7 +268,7 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
                         ),
                       );
 
-                      // If the child popped with “true”, pull fresh data
+                      // if user paired then reload status
                       if (paired == true) {
                         await _refreshStatus();
                       }
@@ -219,15 +292,14 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
               ] else ...[
                 Image.asset('assets/images/img3.png', height: 200),
                 const SizedBox(height: 40),
-                // Add unpair button
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      // Reset pairing status
+                      // just removing the pair flag
                       await _storage.delete(key: _isPairedKey);
-                      await _refreshStatus();
+                      await _refreshStatus(); // refresh again after unpairing
                     },
                     icon: const Icon(Icons.link_off, color: Colors.white),
                     label: const Text(
@@ -235,7 +307,7 @@ class _CotHomeScreenState extends State<CotHomeScreen> {
                       style: TextStyle(fontSize: 18, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF5252),
+                      backgroundColor: const Color(0xFFffb74d),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

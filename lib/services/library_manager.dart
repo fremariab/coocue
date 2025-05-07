@@ -1,14 +1,14 @@
 import 'package:coocue/models/lullaby.dart';
 
-/// A singleton that holds the parent’s personal lullaby list
+// made this a singleton so the LIBRARYMANAGER can be accessed from anywhere
 class LibraryManager {
   LibraryManager._();
   static final LibraryManager I = LibraryManager._();
 
-  /// The user’s saved tracks
+  // list to store the user's saved lullabies
   final List<Lullaby> personalLibrary = [];
 
-  /// Adds every track that isn’t already present (matched by asset path)
+  // adds tracks only if they’re not already in the list by checking asset
   void addAll(Iterable<Lullaby> tracks) {
     for (final t in tracks) {
       if (!personalLibrary.any((e) => e.asset == t.asset)) {
@@ -17,5 +17,6 @@ class LibraryManager {
     }
   }
 
+  // removes a track from the list based on its asset
   void remove(Lullaby t) => personalLibrary.removeWhere((e) => e.asset == t.asset);
 }

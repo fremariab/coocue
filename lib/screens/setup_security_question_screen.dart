@@ -1,7 +1,9 @@
+// imports for flutter widgets and secure storage
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:coocue/screens/parent_home_screen.dart';
 
+// screen where user sets up a security question and answer
 class SetupSecurityQuestionScreen extends StatefulWidget {
   const SetupSecurityQuestionScreen({super.key});
 
@@ -12,15 +14,20 @@ class SetupSecurityQuestionScreen extends StatefulWidget {
 
 class _SetupSecurityQuestionScreenState
     extends State<SetupSecurityQuestionScreen> {
+  // list of questions shown in dropdown
   final List<String> questions = [
     'What’s your favorite color?',
     'Name of the nurse who discharged your child?',
     'What middle name were you going to give your baby?',
     'What is the name of your child’s favorite toy?',
   ];
+
+  // secure storage to save question and answer
   final _storage = FlutterSecureStorage();
 
+  // current selected question
   String? selectedQuestion;
+  // controller for answer text field
   final TextEditingController answerController = TextEditingController();
 
   @override
@@ -34,8 +41,10 @@ class _SetupSecurityQuestionScreenState
             child: Column(
               children: [
                 const SizedBox(height: 20),
+                // app logo at top
                 Image.asset('assets/images/coocue_logo2.png', height: 40),
                 const SizedBox(height: 30),
+                // heading text
                 const Text(
                   'Security Setup',
                   style: TextStyle(
@@ -46,19 +55,19 @@ class _SetupSecurityQuestionScreenState
                   ),
                 ),
                 const SizedBox(height: 25),
+                // description text
                 const Text(
                   'Choose a security question and answer to reset your PIN in the future.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 20,
                     fontFamily: 'LeagueSpartan',
-
                     color: Color(0xFF656565),
                     height: 1,
                   ),
                 ),
                 const SizedBox(height: 60),
-
+                // dropdown to pick a question
                 DropdownButtonFormField<String>(
                   isExpanded: true,
                   dropdownColor: Colors.white,
@@ -92,26 +101,24 @@ class _SetupSecurityQuestionScreenState
                     style: TextStyle(fontFamily: 'LeagueSpartan', fontSize: 16),
                   ),
                   value: selectedQuestion,
-                  items:
-                      questions
-                          .map(
-                            (q) => DropdownMenuItem(
-                              value: q,
-                              child: Text(
-                                q,
-                                style: TextStyle(
-                                  fontFamily: 'LeagueSpartan',
-                                  fontSize: 16,
-                                ),
-                              ),
+                  items: questions
+                      .map(
+                        (q) => DropdownMenuItem(
+                          value: q,
+                          child: Text(
+                            q,
+                            style: TextStyle(
+                              fontFamily: 'LeagueSpartan',
+                              fontSize: 16,
                             ),
-                          )
-                          .toList(),
+                          ),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (val) => setState(() => selectedQuestion = val),
                 ),
-
                 const SizedBox(height: 25),
-
+                // text field to enter the answer
                 TextField(
                   style: TextStyle(fontFamily: 'LeagueSpartan', fontSize: 16),
                   controller: answerController,
@@ -142,20 +149,22 @@ class _SetupSecurityQuestionScreenState
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 40),
+                // submit button to save and navigate
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () async {
+                      // keys for storage
                       final questionKey = 'sec_question';
                       final answerKey = 'sec_answer';
 
-                      // Normalize the answer so comparison is case-insensitive
+                      // normalize answer for case-insensitive comparison
                       final normalizedAnswer =
                           answerController.text.trim().toLowerCase();
 
+                      // write question and answer to secure storage
                       await _storage.write(
                         key: questionKey,
                         value: selectedQuestion,
@@ -165,7 +174,7 @@ class _SetupSecurityQuestionScreenState
                         value: normalizedAnswer,
                       );
 
-                      // Navigate on to the next screen
+                      // go to parent home screen
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(

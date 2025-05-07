@@ -1,24 +1,15 @@
-// class Lullaby {
-//   final String title;
-//   final String asset;     // path in assets/ or a download URL
-//   final String duration;  // simple “1:32”, leave '' if unknown
-
-//   Lullaby({
-//     required this.title,
-//     required this.asset,
-//     this.duration = '',
-//   });
-// }
 class Lullaby {
   final String title;
+  // added this to hold the lullaby’s title
 
-  /// For built‑in tracks bundled in assets
-  final String asset;        // ''  for uploaded files
+  final String asset;
+  // added this to keep the built-in asset path (empty if not used)
 
-  /// For custom uploads stored in Firebase Storage
-  final String? url;         // null for built‑ins
+  final String? url;
+  // added this to store a firebase link for custom uploads
 
-  final String duration;     // optional “1:27”
+  final String duration;
+  // added this to record the track length, e.g. “1:27”
 
   Lullaby({
     required this.title,

@@ -1,50 +1,98 @@
 import 'package:coocue/screens/app_library_screen.dart';
+// added this to pick lullabies from the built-in app collection
+
 import 'package:flutter/material.dart';
-import 'dart:math' as math; // Import dart:math library
+// added this for basic flutter UI components
+
+import 'dart:math' as math;
+// added this to shorten long error message strings nicely
+
 import 'package:firebase_messaging/firebase_messaging.dart';
+// added this to handle push notifications for pairing
+
 import 'package:coocue/screens/pair_screen.dart';
+// added this to navigate to the pairing setup page
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+// added this to read and write data in firestore
+
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+// added this to manage real-time video and audio streams
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+// added this to securely store the paired device id
+
 import 'package:coocue/screens/parent_stream_view_screen.dart';
+// added this to show the live camera feed screen
+
 import 'package:coocue/screens/lullaby_library_screen.dart';
+// added this to navigate to the custom lullaby library
+
 import 'package:coocue/models/lullaby.dart';
+// added this to use the lullaby data model
+
 import 'package:coocue/services/library_manager.dart';
+// added this to manage the personal collection of lullabies
 
 class ParentHomeScreen extends StatefulWidget {
   const ParentHomeScreen({super.key});
+  // added this to define a stateful widget for the parent home screen
 
   @override
   State<ParentHomeScreen> createState() => _ParentHomeScreenState();
+  // added this to connect the widget with its mutable state
 }
 
 class _ParentHomeScreenState extends State<ParentHomeScreen> {
   String? pairedId;
-  bool isLoading = true; // Add loading state
-  bool isViewingActive = false; // Track if viewing is active
+  // added this to hold the paired cot device id
+
+  bool isLoading = true;
+  // added this to show a loading indicator while initializing
+
+  bool isViewingActive = false;
+  // added this to track if live preview is currently active
+
   final _storage = FlutterSecureStorage();
+  // added this to read and write secure storage values
 
   late final Stream<String> imageStream;
+  // added this to listen for new camera frame URLs
+
   RTCPeerConnection? _peer;
+  // added this to hold the webRTC peer connection
 
   MediaStream? _remoteStream;
+  // added this to store the incoming media stream
+
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // added this to use a firestore instance in this class
+
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
+  // added this to render the video feed widget
 
   MediaStreamTrack? _talkTrack;
+  // added this to hold the outgoing audio track for talk mode
+
   RTCRtpSender? _talkSender;
+  // added this to send the talk track over webRTC
+
+  RTCRtpTransceiver? _audioTransceiver;
+  bool _isAudioMuted = true; // Track if cot audio is muted
+
   bool _isTalking = false;
+  // added this to track whether the mic is unmuted
+
   @override
   void initState() {
     super.initState();
+    // added this to initialize the video renderer then finish setup
     _remoteRenderer.initialize().then((_) {
       _initializeApp();
     });
 
-    // Remove the PeerConnectionFactory code as it's not needed in flutter_webrtc
-    // flutter_webrtc handles this internally
-
-    imageStream = FirebaseFirestore.instance
+    // added this to set up a stream of image URLs from firestore
+    imageStream = _db
         .collection('cot_feed')
         .doc('current_frame')
         .snapshots()
@@ -53,280 +101,388 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
 
   @override
   void dispose() {
+    // added this to close connections and dispose the renderer
     _closeConnection();
     _remoteRenderer.dispose();
     super.dispose();
   }
 
-  void _setRemoteAudioEnabled(bool enabled) {
-    _remoteStream?.getAudioTracks().forEach((t) => t.enabled = enabled);
-  }
-
   Future<void> _initializeApp() async {
-    await _remoteRenderer.initialize();
+    // added this to load paired id and stop showing spinner
     await _loadPairedId();
     setState(() => isLoading = false);
   }
 
+  Future<void> _setTransceiverDirection(TransceiverDirection direction) async {
+    if (_audioTransceiver != null) {
+      try {
+        await _audioTransceiver!.setDirection(direction);
+        debugPrint('Set transceiver direction to: $direction');
+      } catch (e) {
+        debugPrint('Error setting transceiver direction: $e');
+      }
+    }
+  }
+
+  // Update the talk toggle functions
+  Future<void> _toggleTalk() async {
+    if (_isTalking) {
+      await _stopTalking();
+    } else {
+      await _startTalking();
+    }
+  }
+
   Future<void> _startTalking() async {
     if (_talkTrack == null) return;
-    _talkTrack!.enabled = true; // un‑mute this side
-    _setRemoteAudioEnabled(false); // mute baby audio
-    setState(() => _isTalking = true);
+
+    try {
+      // Enable parent microphone
+      _talkTrack!.enabled = true;
+
+      // Change transceiver direction to send/receive
+      await _setTransceiverDirection(TransceiverDirection.SendRecv);
+
+      // Mute incoming audio to prevent echo while talking
+      if (_remoteStream != null) {
+        _remoteStream!.getAudioTracks().forEach((track) {
+          track.enabled = false;
+        });
+        _isAudioMuted = true;
+      }
+
+      setState(() => _isTalking = true);
+      debugPrint('Started talking mode');
+    } catch (e) {
+      debugPrint('Error starting talk: $e');
+    }
   }
 
   Future<void> _stopTalking() async {
     if (_talkTrack == null) return;
-    _talkTrack!.enabled = false; // mute mic
-    _setRemoteAudioEnabled(true); // restore baby audio
-    if (mounted) setState(() => _isTalking = false);
+
+    try {
+      // Disable parent microphone
+      _talkTrack!.enabled = false;
+
+      // Change transceiver to receive only
+      await _setTransceiverDirection(TransceiverDirection.RecvOnly);
+
+      // Unmute incoming audio to hear the baby
+      if (_remoteStream != null) {
+        _remoteStream!.getAudioTracks().forEach((track) {
+          track.enabled = true;
+        });
+        _isAudioMuted = false;
+      }
+
+      setState(() => _isTalking = false);
+      debugPrint('Stopped talking mode');
+    } catch (e) {
+      debugPrint('Error stopping talk: $e');
+    }
   }
 
-  Future<void> _toggleTalk() async =>
-      _isTalking ? _stopTalking() : _startTalking();
+  // Update the close connection function to clean up properly
+  Future<void> _closeConnection() async {
+    // Stop talking if active
+    if (_isTalking) await _stopTalking();
+
+    // Clean up remote stream
+    if (_remoteStream != null) {
+      _remoteStream!.getTracks().forEach((track) {
+        track.stop();
+      });
+      _remoteStream = null;
+    }
+
+    // Reset video renderer
+    _remoteRenderer.srcObject = null;
+
+    // Close peer connection
+    try {
+      _audioTransceiver = null;
+      await _peer?.close();
+      _peer = null;
+    } catch (e) {
+      debugPrint('Error closing peer connection: $e');
+    }
+
+    setState(() => isViewingActive = false);
+  }
+
+  // Also update this function to properly handle audio tracks
+  void _setRemoteAudioEnabled(bool enabled) {
+    // Mute or unmute the remote audio track
+    if (_remoteStream != null) {
+      _remoteStream!.getAudioTracks().forEach((track) {
+        track.enabled = enabled;
+      });
+    }
+  }
 
   Future<void> _startViewing() async {
     if (pairedId == null) {
-      debugPrint("❌ Cannot start viewing: not paired");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pair with a Cot device first')),
+        const SnackBar(
+          backgroundColor: Color(0xFF3F51B5),
+          content: Text('Please Pair With Cot Device First'),
+        ),
       );
       return;
     }
 
     _closeConnection();
-
     setState(() => isLoading = true);
 
     try {
       final callRef = _db.collection('calls').doc(pairedId!);
 
+      // Setup WebRTC peer connection with specific audio options
       _peer = await createPeerConnection({
         'iceServers': [
           {'urls': 'stun:stun.l.google.com:19302'},
         ],
+        // Add these critical echo cancellation configs
+        'sdpSemantics': 'unified-plan',
+        'enableDtlsSrtp': true,
+        'offerToReceiveAudio': true,
+        'offerToReceiveVideo': true,
       });
+
+      // Get microphone stream but ENSURE it's muted initially
       final talkStream = await navigator.mediaDevices.getUserMedia({
-        'audio': true,
+        'audio': {
+          'echoCancellation': true, // Enable echo cancellation
+          'noiseSuppression': true, // Enable noise suppression
+          'autoGainControl': true, // Enable auto gain control
+        },
         'video': false,
       });
 
       _talkTrack = talkStream.getAudioTracks().first;
-      _talkTrack!.enabled = false; // <-- muted initially
-      _talkSender = await _peer!.addTrack(_talkTrack!, talkStream);
-      _peer!.onIceCandidate = (RTCIceCandidate? cand) {
-        if (cand != null) {
-          callRef.collection('answersCandidates').add({
-            'candidate': cand.candidate,
-            'sdpMid': cand.sdpMid,
-            'sdpMLineIndex': cand.sdpMLineIndex,
-          });
+      _talkTrack!.enabled = false; // Start MUTED
+
+      // Use transceiver approach for better control of audio
+      _audioTransceiver = await _peer!.addTransceiver(
+        track: _talkTrack!,
+        kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+        init: RTCRtpTransceiverInit(
+          direction: TransceiverDirection.SendRecv,
+          streams: [talkStream],
+        ),
+      );
+
+      // Make sure transceiver is properly configured
+      await _setTransceiverDirection(TransceiverDirection.RecvOnly);
+
+      _peer!.onTrack = (event) async {
+        debugPrint('Track received: ${event.track.kind}');
+
+        if (event.track.kind == 'video') {
+          if (event.streams.isNotEmpty) {
+            _remoteStream = event.streams[0];
+            _remoteRenderer.srcObject = _remoteStream;
+            setState(() => isViewingActive = true);
+          }
+        } else if (event.track.kind == 'audio') {
+          // We received audio track from cot
+          if (_remoteStream == null && event.streams.isNotEmpty) {
+            _remoteStream = event.streams[0];
+          }
+
+          // Make sure the track's enabled state matches our tracking variable
+          event.track.enabled = !_isAudioMuted;
+
+          debugPrint('Audio track enabled: ${event.track.enabled}');
         }
       };
 
-      _peer!.onTrack = (event) {
-        if (event.streams.isNotEmpty && mounted) {
-          setState(() {
-            _remoteStream = event.streams[0];
-            _remoteRenderer.srcObject = _remoteStream;
-            isViewingActive = true;
-          });
-        }
-      };
+      // Handle the offer and answer exchange with Firebase
       final snap = await callRef.get();
       if (!snap.exists || !(snap.data()!.containsKey('offer'))) {
-        throw Exception('No active broadcast found for this device');
+        throw Exception('No Active Broadcast Found');
       }
+
       final offer = snap.data()!['offer'];
       await _peer!.setRemoteDescription(
         RTCSessionDescription(offer['sdp'], offer['type']),
       );
 
-      final answer = await _peer!.createAnswer();
+      // Create answer with specific options
+      final answer = await _peer!.createAnswer({
+        'offerToReceiveAudio': true,
+        'offerToReceiveVideo': true,
+      });
+
       await _peer!.setLocalDescription(answer);
       await callRef.update({'answer': answer.toMap()});
 
-      // Listen for ICE candidates
-      callRef
-          .collection('offersCandidates') // <- correct spelling
-          .snapshots()
-          .listen((snapshot) {
-            for (var change in snapshot.docChanges) {
-              if (change.type == DocumentChangeType.added) {
-                final data = change.doc.data()!;
-                _peer!.addCandidate(
-                  RTCIceCandidate(
-                    data['candidate'],
-                    data['sdpMid'],
-                    data['sdpMLineIndex'],
-                  ),
-                );
-              }
-            }
-          });
-      // Add connection state change listener
+      // ICE candidate handling
+      _peer!.onIceCandidate = (candidate) {
+        callRef.collection('answerCandidates').add(candidate.toMap());
+      };
+
+      callRef.collection('offersCandidates').snapshots().listen((snapshot) {
+        for (var change in snapshot.docChanges) {
+          if (change.type == DocumentChangeType.added) {
+            final data = change.doc.data()!;
+            _peer!.addCandidate(
+              RTCIceCandidate(
+                data['candidate'],
+                data['sdpMid'],
+                data['sdpMLineIndex'],
+              ),
+            );
+          }
+        }
+      });
+
       _peer?.onConnectionState = (state) {
-        debugPrint("📡 WebRTC connection state changed: $state");
+        debugPrint('WebRTC Connection State: $state');
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
-          debugPrint("✅ WebRTC connection established");
+          debugPrint('WebRTC Connected');
         } else if (state ==
                 RTCPeerConnectionState.RTCPeerConnectionStateFailed ||
             state ==
                 RTCPeerConnectionState.RTCPeerConnectionStateDisconnected) {
-          debugPrint("❌ WebRTC connection failed or disconnected");
+          debugPrint('WebRTC Failed Or Disconnected');
           _closeConnection();
         }
       };
 
-      debugPrint("✅ WebRTC connection setup complete");
+      debugPrint('WebRTC Setup Complete');
     } catch (e) {
-      debugPrint("❌ WebRTC error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Connection error: ${e.toString().substring(0, math.min(e.toString().length, 100))}',
+            'Connection Error: ${e.toString().substring(0, math.min(e.toString().length, 100))}',
           ),
         ),
       );
       _closeConnection();
     } finally {
-      if (mounted) {
-        setState(() => isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _closeConnection() async {
-    // Safely close remote stream
-    if (_isTalking) await _stopTalking();
-
-    if (_remoteStream != null) {
-      _remoteStream!.getTracks().forEach((track) => track.stop());
-      _remoteStream!.dispose();
-      _remoteStream = null;
-    }
-
-    // Clear renderer
-    _remoteRenderer.srcObject = null;
-
-    // Safely close peer connection
-    try {
-      if (_peer != null) {
-        _peer?.close();
-      }
-    } catch (e) {
-      debugPrint("⚠️ Error closing peer connection: $e");
-    }
-
-    if (mounted) {
-      setState(() => isViewingActive = false);
+      setState(() => isLoading = false);
     }
   }
 
   Future<void> _loadPairedId() async {
+    // added this to read the saved paired id from secure storage
     try {
       final id = await _storage.read(key: 'pair_id');
       setState(() => pairedId = id);
-      debugPrint("✅ Loaded paired ID: $id");
     } catch (e) {
-      debugPrint("❌ Error loading paired ID: $e");
+      debugPrint('Error Loading Paired ID: $e');
     }
   }
 
   Future<void> _unpair() async {
     if (pairedId == null) return;
-
     setState(() => isLoading = true);
 
     try {
-      _closeConnection();
+      final cmdRef = _db
+          .collection('pairs')
+          .doc(pairedId!)
+          .collection('commands');
+
+      // send the unpair command
+      await cmdRef.add({
+        'type': 'unpair',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // then unsubscribe & delete storage
       await FirebaseMessaging.instance.unsubscribeFromTopic('pair_$pairedId');
       await _storage.delete(key: 'pair_id');
+
       setState(() => pairedId = null);
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Successfully unpaired')));
-
-      debugPrint("✅ Device unpaired");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFF3F51B5),
+          content: Text('Successfully Unpaired'),
+        ),
+      );
     } catch (e) {
-      debugPrint("❌ Error unpairing: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Error unpairing device')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFF3F51B5),
+          content: Text('Error Unpairing Device'),
+        ),
+      );
     } finally {
       setState(() => isLoading = false);
     }
   }
 
   void _goToPairScreen() {
+    // added this to navigate to the pairing screen
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const PairScreen()),
-    ).then((_) {
-      // refresh when returning
-      _loadPairedId();
-    });
+    ).then((_) => _loadPairedId());
   }
 
-  void _openStreamView() async {
+  void _openStreamView() {
+    // added this to start viewing then navigate to the stream viewer
     if (pairedId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please pair with a Cot device first')),
+        const SnackBar(
+          backgroundColor: Color(0xFF3F51B5),
+          content: Text('Please Pair With Cot Device First'),
+        ),
       );
       return;
     }
-
-    // 1) Ensure connection is up and audio un-muted
-    await _startViewing();
-    _setRemoteAudioEnabled(true);
-
-    // 2) Navigate, passing handlers & renderer
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => ParentStreamViewScreen(
-              remoteRenderer: _remoteRenderer,
-              onToggleTalk: _toggleTalk,
-              isTalking: _isTalking,
-              onPlayLullaby: () async {
-                // 1) make sure you actually have at least one lullaby
-                if (LibraryManager.I.personalLibrary.isEmpty) {
+    _startViewing().then((_) {
+      _setRemoteAudioEnabled(true);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => ParentStreamViewScreen(
+                remoteRenderer: _remoteRenderer,
+                onToggleTalk: _toggleTalk,
+                isTalking: _isTalking,
+                onPlayLullaby: () async {
+                  // added this to play the first lullaby in personal library
+                  if (LibraryManager.I.personalLibrary.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        backgroundColor: Color(0xFF3F51B5),
+                        content: Text('No Lullabies Available'),
+                      ),
+                    );
+                    return;
+                  }
+                  final Lullaby lullaby =
+                      LibraryManager.I.personalLibrary.first;
+                  await _db
+                      .collection('pairs')
+                      .doc(pairedId)
+                      .collection('commands')
+                      .add({
+                        'type': 'play',
+                        'assetPath': lullaby.asset,
+                        'title': lullaby.title,
+                        'createdAt': FieldValue.serverTimestamp(),
+                      });
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('No lullabies available to play.'),
+                    SnackBar(
+                      backgroundColor: Color(0xFF3F51B5),
+                      content: Text('Playing "${lullaby.title}" On Cot'),
                     ),
                   );
-                  return;
-                }
-
-                // 2) pick whichever Lullaby you want (here: the first)
-                final Lullaby lullaby = LibraryManager.I.personalLibrary.first;
-
-                // 3) send your play command using the real asset & title
-                await FirebaseFirestore.instance
-                    .collection('pairs')
-                    .doc(pairedId)
-                    .collection('commands')
-                    .add({
-                      'type': 'play',
-                      'assetPath': lullaby.asset,
-                      'title': lullaby.title,
-                      'createdAt': FieldValue.serverTimestamp(),
-                    });
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Playing "${lullaby.title}" on cot')),
-                );
-              },
-            ),
-      ),
-    );
+                },
+              ),
+        ),
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // added this to build the main parent home UI
     final isPaired = pairedId != null;
 
     return Scaffold(
@@ -360,7 +516,6 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -373,8 +528,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                               fontFamily: 'LeagueSpartan',
                             ),
                           ),
-                          // Status indicator
                           Container(
+                            // added this to show pairing status
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 4,
@@ -401,10 +556,10 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-
                       GestureDetector(
                         onTap: _openStreamView,
                         child: Container(
+                          // added this as the video preview container
                           height: 200,
                           width: double.infinity,
                           decoration: BoxDecoration(
@@ -424,6 +579,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                     ),
                                   )
                                   : Center(
+                                    // added this to show when no feed is active
                                     child: Column(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
@@ -435,7 +591,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                         ),
                                         const SizedBox(height: 12),
                                         const Text(
-                                          'Camera feed not available',
+                                          'Camera Feed Not Available',
                                           style: TextStyle(
                                             color: Colors.grey,
                                             fontFamily: 'LeagueSpartan',
@@ -455,7 +611,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                             ),
                                           ),
                                           child: const Text(
-                                            'Connect to Cot',
+                                            'Connect To Cot',
                                             style: TextStyle(
                                               color: Colors.white,
                                             ),
@@ -485,6 +641,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                       ? _toggleTalk
                                       : null,
                               child: Container(
+                                // added this to toggle talk mode
                                 padding: const EdgeInsets.all(16),
                                 margin: const EdgeInsets.only(right: 8),
                                 decoration: BoxDecoration(
@@ -512,7 +669,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                       _isTalking ? Icons.mic_off : Icons.mic,
                                       color:
                                           isPaired
-                                              ? const Color(0xFFFF9800)
+                                              ? const Color(0xffffb74d)
                                               : Colors.grey,
                                       size: 32,
                                     ),
@@ -534,7 +691,6 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                               ),
                             ),
                           ),
-
                           Expanded(
                             child: GestureDetector(
                               onTap:
@@ -551,6 +707,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                       }
                                       : null,
                               child: Container(
+                                // added this to open lullaby library
                                 padding: const EdgeInsets.all(16),
                                 margin: const EdgeInsets.only(left: 8),
                                 decoration: BoxDecoration(
@@ -578,21 +735,18 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                                       Icons.music_note,
                                       color:
                                           isPaired
-                                              ? const Color(0xFFFFA726)
+                                              ? const Color(0xffffb74d)
                                               : Colors.grey,
                                       size: 32,
                                     ),
                                     const SizedBox(height: 8),
-                                    Text(
+                                    const Text(
                                       'Play Lullaby',
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontFamily: 'LeagueSpartan',
                                         fontWeight: FontWeight.w500,
-                                        color:
-                                            isPaired
-                                                ? Colors.black
-                                                : Colors.grey,
+                                        color: Colors.black,
                                       ),
                                     ),
                                   ],
@@ -602,19 +756,14 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 28),
-
-                      // Pair / Unpair toggle button
                       Center(
+                        // added this for the pair/unpair button
                         child: ElevatedButton.icon(
                           onPressed: isPaired ? _unpair : _goToPairScreen,
-                          icon: Icon(
-                            isPaired ? Icons.link_off : Icons.link,
-                            color: Colors.white,
-                          ),
+
                           label: Text(
-                            isPaired ? 'Unpair' : 'Pair with Cot',
+                            isPaired ? 'Unpair' : 'Pair With Cot',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -629,7 +778,6 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 28),
                       const Text(
                         'Tender Tips',
@@ -641,6 +789,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                       ),
                       const SizedBox(height: 12),
                       Container(
+                        // added this to show a parenting tip
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
                           vertical: 12,
@@ -651,7 +800,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Text(
-                          "Use your baby's nap times for mini\nself-care breaks.",
+                          'Use Your Baby\'s Nap Times For Mini\nSelf-Care Breaks.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,

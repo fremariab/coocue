@@ -14,8 +14,10 @@ class ResetPinScreen extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 20),
+              // added this to show the COOUE LOGO at the top
               Image.asset('assets/images/coocue_logo2.png', height: 40),
               const SizedBox(height: 30),
+              // added the RESET PIN heading here
               const Text(
                 'Reset PIN',
                 style: TextStyle(
@@ -26,6 +28,7 @@ class ResetPinScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              // just explaining how to reset the pin to the user
               const Text(
                 'Forgot your PIN?\nTo reset, answer your security question.',
                 textAlign: TextAlign.center,
@@ -36,6 +39,7 @@ class ResetPinScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 60),
+              // button that takes user to the RESETPINVERIFYSCREEN
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -65,7 +69,7 @@ class ResetPinScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-
+              // added this bottom image for design purposes
               Image.asset('assets/images/img4.png', height: 300),
             ],
           ),

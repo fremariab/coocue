@@ -15,27 +15,38 @@ class DisplayCodeScreen extends StatefulWidget {
 class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
   Duration remainingTime = const Duration(minutes: 1);
   Timer? timer;
-  // persistent storage + UUID generator
+
+  // used to store values safely
   final _storage = FlutterSecureStorage();
+
+  // to generate random unique codes
   final _uuid = Uuid();
 
-  // keys for secure storage
+  // keys to save and retrieve stuff from storage
   static const _codeKey = 'pair_code';
   static const _idKey = 'pair_id';
   static const _expiryKey = 'pair_expiry';
-  static const _isPairedKey = 'is_paired'; // Added for clarity
+  static const _isPairedKey = 'is_paired';
 
-  String? pairingCode; // six-digit string
-  DateTime? expiry; // when it expires
+  // this will hold the pairing code
+  String? pairingCode;
+
+  // this will store when the code will expire
+  DateTime? expiry;
+
+  // timer to update the countdown
   Timer? countdownTimer;
 
   @override
   void initState() {
     super.initState();
+    // setting up the listener for firebase messages
     _setupFirebaseListener();
+    // either load an existing code or generate new one
     _loadOrGenerate();
   }
 
+  // setting up what to do when a firebase message comes
   void _setupFirebaseListener() {
     FirebaseMessaging.onMessage.listen((msg) async {
       debugPrint("-----------------\nPair message received\n---------------");
@@ -43,30 +54,37 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
 
       if (msg.data['type'] == 'PAIRED') {
         String pairId;
+
+        // checking if we got a pairId from the server
         if (msg.data['pairId'] != null &&
             msg.data['pairId'].toString().isNotEmpty) {
           pairId = msg.data['pairId'].toString();
           debugPrint("Using server-provided pairId: $pairId");
         } else {
+          // if not, using the local one
           pairId = pairingCode ?? '';
           debugPrint("Using local code as pairId: $pairId");
         }
 
+        // storing that pairing is done
         await _storage.write(key: _isPairedKey, value: 'true');
         await _storage.write(key: _idKey, value: pairId);
 
+        // just printing what got stored
         final storedPairId = await _storage.read(key: _idKey);
         final isPaired = await _storage.read(key: _isPairedKey);
         debugPrint(
           "Stored values - isPaired: $isPaired, pairId: $storedPairId",
         );
 
+        // if screen is still there then close it
         if (mounted)
           Navigator.pop(context, true);
       }
     });
   }
 
+  // either loading a saved code or making a new one if expired
   Future<void> _loadOrGenerate() async {
     final storedExpiry = await _storage.read(key: _expiryKey);
     if (storedExpiry == null ||
@@ -76,36 +94,43 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
       pairingCode = await _storage.read(key: _codeKey);
       expiry = DateTime.parse(storedExpiry);
     }
+    // starting the countdown
     _startCountdown();
   }
 
+  // generating a new 6-digit code
   Future<void> _generatePairing() async {
     final code = (_uuid.v4().hashCode.abs() % 900000 + 100000).toString();
     final expiry = DateTime.now().add(const Duration(minutes: 1));
     final expIso = expiry.toIso8601String();
 
+    // saving all the pairing info
     await _storage.write(key: _codeKey, value: code);
     await _storage.write(key: _expiryKey, value: expIso);
-    await _storage.write(key: _idKey, value: code); 
+    await _storage.write(key: _idKey, value: code);
 
     debugPrint("-----------------\nGenerated new code\n---------------");
     debugPrint("Code: $code");
     debugPrint("Stored as pair_id: $code");
 
+    // saving code details to firestore
     await FirebaseFirestore.instance.collection('pairingCodes').doc(code).set({
       'createdAt': FieldValue.serverTimestamp(),
-      'expiresAt': expiry,  
-      'used': false,  
+      'expiresAt': expiry,
+      'used': false,
     });
 
+    // subscribing to firebase topic for this code
     await FirebaseMessaging.instance.subscribeToTopic('pair_$code');
 
+    // updating state with new values
     setState(() {
       pairingCode = code;
       this.expiry = expiry;
     });
   }
 
+  // starting the countdown timer
   void _startCountdown() {
     countdownTimer?.cancel();
     countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -120,6 +145,7 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
     });
   }
 
+  // formatting time into mm:ss
   String _formatDuration() {
     if (expiry == null) return '00:00';
     final left = expiry!.difference(DateTime.now());
@@ -130,12 +156,14 @@ class _DisplayCodeScreenState extends State<DisplayCodeScreen> {
 
   @override
   void dispose() {
+    // stopping the timer if screen is closed
     countdownTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // splitting code into individual digits or dashes
     final digits = (pairingCode ?? '------').split('');
 
     return Scaffold(

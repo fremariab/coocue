@@ -18,26 +18,27 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
+    // start a timer for splash duration
     Timer(const Duration(seconds: 3), () async {
+      // load saved role from preferences
       final prefs = await SharedPreferences.getInstance();
       final role = prefs.getString('role');
 
+      // choose next screen based on role
       if (role == 'parent') {
-        // go straight to lock screen
+        // go to pin entry for parent
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const EnterPinScreen()),
         );
       } else if (role == 'cot') {
+        // go to cot home if paired as cot
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder:
-                (_) => const CotHomeScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const CotHomeScreen()),
         );
       } else {
+        // default to welcome screen
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const WelcomeScreen()),
@@ -45,7 +46,7 @@ class _SplashScreenState extends State<SplashScreen> {
       }
     });
 
-    // Animate the progress line smoothly
+    // animate progress bar to full right away
     Future.delayed(Duration.zero, () {
       setState(() {
         progressValue = 1.0;
@@ -56,11 +57,13 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FC), // BG color
+      // background color for splash
+      backgroundColor: const Color(0xFFF4F6FC),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // show app logo
             Image.asset(
               'assets/images/coocue_logo.png',
               height: 250,
@@ -69,19 +72,18 @@ class _SplashScreenState extends State<SplashScreen> {
 
             const SizedBox(height: 40),
 
-            // Animated Progress Bar
+            // progress indicator with tween animation
             TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: progressValue),
               duration: const Duration(seconds: 4),
-              builder:
-                  (context, value, _) => SizedBox(
-                    width: 100,
-                    child: LinearProgressIndicator(
-                      value: value,
-                      color: const Color(0xFF3F51B5), // blue
-                      backgroundColor: const Color(0xFFE0E0E0), // light gray
-                    ),
-                  ),
+              builder: (context, value, _) => SizedBox(
+                width: 100,
+                child: LinearProgressIndicator(
+                  value: value,
+                  color: const Color(0xFF3F51B5),
+                  backgroundColor: const Color(0xFFE0E0E0),
+                ),
+              ),
             ),
           ],
         ),

@@ -7,14 +7,15 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FC), // Background color
+      backgroundColor: const Color(0xFFF4F6FC),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 20), // Push logo to top
+              const SizedBox(height: 20),
+              // showing the COOUE LOGO at the top center
               Center(
                 child: Image.asset(
                   'assets/images/coocue_logo2.png',
@@ -24,7 +25,7 @@ class WelcomeScreen extends StatelessWidget {
 
               const SizedBox(height: 60),
 
-              // Welcome Texts
+              // showing welcome heading with COOCUE brand
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
@@ -52,6 +53,7 @@ class WelcomeScreen extends StatelessWidget {
 
               const SizedBox(height: 30),
 
+              // adding a central image for visual context
               Image.asset(
                 'assets/images/img2.png',
                 height: 275,
@@ -60,6 +62,7 @@ class WelcomeScreen extends StatelessWidget {
 
               const SizedBox(height: 50),
 
+              // explaining what COOUE actually does
               const Text(
                 'Transform any Android phone\ninto a smart baby monitor',
                 textAlign: TextAlign.center,
@@ -72,6 +75,7 @@ class WelcomeScreen extends StatelessWidget {
 
               const SizedBox(height: 70),
 
+              // button to go to the ROLEPICKERSCREEN
               SizedBox(
                 width: 341,
                 height: 48,
