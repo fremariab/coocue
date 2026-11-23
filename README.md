@@ -10,7 +10,7 @@ The application repurposes two Android smartphones into a cooperative baby monit
 
 - **Demo Video:** [Watch the Coocue Demo](https://studio.youtube.com/video/r-ZAMIl5lO8/edit)
 - **GitHub Repository:** [Coocue](https://github.com/fremariab/coocue)
-- **Cry Detection API:** [Coocue Cry Detector API]((https://github.com/fremariab/coocue_cry_detector_api))
+- **Cry Detection API:** [Coocue Cry Detector API](https://github.com/fremariab/coocue_cry_detector_api)
 
 ## Background
 
